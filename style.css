@@ -768,3 +768,121 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--gold);
 }
+
+/* ===========================
+   📱 MOBILE ADAPTATION
+=========================== */
+@media (max-width: 768px) {
+
+    body {
+        overflow: hidden;
+    }
+
+    /* --- Top Bar --- */
+    .top-bar {
+        padding: 0.6rem 1rem;
+    }
+
+    .logo h1 {
+        font-size: 1.2rem;
+    }
+
+    .project-controls {
+        display: none; /* trop dense pour mobile */
+    }
+
+    .mobile-menu-btn {
+        background: var(--metal);
+        border: 1px solid var(--gold);
+        color: var(--white);
+        font-size: 1.5rem;
+        padding: 0.4rem 0.7rem;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    /* --- Layout --- */
+    .main-container {
+        flex-direction: column;
+        height: calc(100vh - 50px);
+    }
+
+    /* --- Sidebar devient un panneau --- */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        z-index: 2000;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        padding-top: 70px;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* --- Workspace plein écran --- */
+    .workspace {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    /* --- Transport bar compacte --- */
+    .transport-bar {
+        padding: 0.6rem;
+        gap: 0.8rem;
+    }
+
+    .transport-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1.1rem;
+    }
+
+    .time-display {
+        font-size: 1.2rem;
+    }
+
+    .zoom-controls {
+        display: none; /* trop petit sur mobile */
+    }
+
+    /* --- Tracks --- */
+    .tracks-container {
+        padding: 0.6rem;
+    }
+
+    .track-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.8rem;
+    }
+
+    .track-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .track-btn {
+        flex: 1;
+        text-align: center;
+        padding: 0.6rem;
+        font-size: 1rem;
+    }
+
+    /* --- Modal plein écran --- */
+    .modal-content {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .modal-body {
+        padding: 1rem;
+    }
+}
