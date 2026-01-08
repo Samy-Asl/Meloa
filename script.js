@@ -873,16 +873,31 @@ function formatTime(seconds) {
 
 
 // =========================
-// 📱 MOBILE MENU
+// 📱 SIDEBAR MOBILE FULLSCREEN
 // =========================
-const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-const sidebar = document.getElementById('sidebar');
+const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+const sidebar = document.getElementById("sidebar");
+const closeBtn = document.getElementById("sidebar-close-btn");
 
-if (mobileMenuBtn) {
-    mobileMenuBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
-    });
+function openSidebar() {
+  sidebar.classList.add("open");
+  document.body.classList.add("sidebar-open");
 }
+
+function closeSidebar() {
+  sidebar.classList.remove("open");
+  document.body.classList.remove("sidebar-open");
+}
+
+mobileMenuBtn?.addEventListener("click", openSidebar);
+closeBtn?.addEventListener("click", closeSidebar);
+
+// Option bonus : fermer en cliquant hors contenu
+sidebar.addEventListener("click", (e) => {
+  if (e.target === sidebar) {
+    closeSidebar();
+  }
+});
 
 
 // ================================================
