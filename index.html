@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2d3748">
+    <meta name="description" content="Application expérimentale d'analyse sonore et de génération rythmique">
+    <title>SoundRhythm</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>SoundRhythm</h1>
+    </header>
+
+    <main>
+        <section class="status-section">
+            <div id="recording-status" class="status-indicator" data-status="inactive">
+                <span class="status-dot"></span>
+                <span class="status-text">Prêt à enregistrer</span>
+            </div>
+        </section>
+
+        <section class="control-section">
+            <button id="record-button" class="record-button">Enregistrer un son</button>
+        </section>
+
+        <section class="sound-visual">
+            <div id="waveform-container" class="waveform-placeholder">
+                <div id="pulse-indicator" class="pulse-circle"></div>
+            </div>
+        </section>
+
+        <section class="analysis-section">
+            <h2>Analyse sonore</h2>
+            <div class="analysis-grid">
+                <div class="analysis-item">
+                    <span class="analysis-label">Fréquence dominante</span>
+                    <span id="frequency-value" class="analysis-value">-- Hz</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Intensité moyenne</span>
+                    <span id="intensity-value" class="analysis-value">-- dB</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Tempo détecté</span>
+                    <span id="tempo-value" class="analysis-value">-- BPM</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Durée</span>
+                    <span id="duration-value" class="analysis-value">-- s</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="result-section">
+            <h2>Rythme généré</h2>
+            <div id="rhythm-output" class="rhythm-container">
+                <div class="rhythm-type">
+                    <span class="rhythm-label">Type de beat :</span>
+                    <span id="beat-type" class="rhythm-value">En attente d'analyse</span>
+                </div>
+                <div class="rhythm-pattern">
+                    <span class="rhythm-label">Pattern :</span>
+                    <div id="beat-pattern" class="pattern-display">
+                        <span class="pattern-placeholder">Aucun pattern généré</span>
+                    </div>
+                </div>
+                <div class="rhythm-signature">
+                    <span class="rhythm-label">Signature rythmique :</span>
+                    <span id="time-signature" class="rhythm-value">--/--</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="concept-section">
+            <h2>Explorez le son et le rythme</h2>
+            <p>
+                Cette application expérimentale vous permet de capturer et visualiser 
+                les sons qui vous entourent. Créez des patterns rythmiques, explorez 
+                les textures sonores et donnez vie à vos idées musicales.
+            </p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 SoundRhythm - Application expérimentale</p>
+    </footer>
+</body>
+</html>
