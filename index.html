@@ -7,93 +7,165 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#2d3748">
-    <meta name="description" content="Application expérimentale d'analyse sonore et de génération rythmique">
-    <title>SoundRhythm</title>
+    <meta name="description" content="Studio de production musicale expérimental">
+    <title>SoundRhythm Studio</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>SoundRhythm</h1>
+        <h1>SoundRhythm Studio</h1>
+        <p class="subtitle">Transformez vos sons en musique</p>
     </header>
 
     <main>
-        <section class="status-section">
-            <div id="recording-status" class="status-indicator" data-status="inactive">
-                <span class="status-dot"></span>
-                <span class="status-text">Prêt à enregistrer</span>
+        <!-- Status & Recording -->
+        <section class="recording-panel">
+            <div class="status-bar">
+                <div id="recording-status" class="status-indicator" data-status="inactive">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Prêt</span>
+                </div>
+                <div class="tempo-display">
+                    <span class="tempo-label">Tempo:</span>
+                    <span id="tempo-value" class="tempo-value">120 BPM</span>
+                </div>
+            </div>
+
+            <div class="record-controls">
+                <button id="record-button" class="record-button">
+                    <span class="button-icon">⏺</span>
+                    <span class="button-text">Enregistrer</span>
+                </button>
+                <div class="recording-timer" id="recording-timer">0.0s</div>
             </div>
         </section>
 
-        <section class="control-section">
-            <button id="record-button" class="record-button">Enregistrer un son</button>
+        <!-- Visualizer -->
+        <section class="visualizer-section">
+            <canvas id="waveform-canvas" class="waveform-canvas"></canvas>
+            <div id="beat-grid" class="beat-grid"></div>
         </section>
 
-        <section class="sound-visual">
-            <div id="waveform-container" class="waveform-placeholder">
-                <div id="pulse-indicator" class="pulse-circle"></div>
+        <!-- Instrument Selector -->
+        <section class="instrument-section">
+            <h2>Choix d'instrument</h2>
+            <div class="instrument-selector">
+                <button class="instrument-btn active" data-instrument="synth">
+                    🎹 Synthé
+                </button>
+                <button class="instrument-btn" data-instrument="piano">
+                    🎹 Piano
+                </button>
+                <button class="instrument-btn" data-instrument="guitar">
+                    🎸 Guitare
+                </button>
+                <button class="instrument-btn" data-instrument="bass">
+                    🎸 Basse
+                </button>
+                <button class="instrument-btn" data-instrument="drums">
+                    🥁 Drums
+                </button>
+                <button class="instrument-btn" data-instrument="pad">
+                    🌊 Pad
+                </button>
             </div>
         </section>
 
+        <!-- Sample Pads -->
+        <section class="sample-section">
+            <div class="section-header">
+                <h2>Banque de samples</h2>
+                <button id="clear-samples-btn" class="small-button">🗑️ Effacer tout</button>
+            </div>
+            <div id="sample-pads" class="sample-pads">
+                <!-- Samples dynamiquement ajoutés ici -->
+            </div>
+            <div class="sample-info">
+                <p>🎵 Enregistrez des sons et ils apparaîtront ici pour être rejoués</p>
+            </div>
+        </section>
+
+        <!-- Playback Controls -->
+        <section class="playback-section">
+            <h2>Contrôles de lecture</h2>
+            <div class="playback-controls">
+                <button id="play-button" class="control-button play-btn" disabled>
+                    <span class="button-icon">▶</span>
+                    <span class="button-text">Jouer</span>
+                </button>
+                <button id="stop-button" class="control-button stop-btn" disabled>
+                    <span class="button-icon">⏹</span>
+                    <span class="button-text">Stop</span>
+                </button>
+                <button id="loop-button" class="control-button loop-btn active">
+                    <span class="button-icon">🔁</span>
+                    <span class="button-text">Loop</span>
+                </button>
+            </div>
+
+            <div class="playback-params">
+                <div class="param-group">
+                    <label for="tempo-slider">Tempo: <span id="tempo-display">120</span> BPM</label>
+                    <input type="range" id="tempo-slider" min="60" max="200" value="120" step="1">
+                </div>
+                <div class="param-group">
+                    <label for="volume-slider">Volume: <span id="volume-display">80</span>%</label>
+                    <input type="range" id="volume-slider" min="0" max="100" value="80" step="1">
+                </div>
+            </div>
+        </section>
+
+        <!-- Pattern Analysis -->
         <section class="analysis-section">
-            <h2>Analyse sonore</h2>
+            <h2>Analyse du pattern</h2>
             <div class="analysis-grid">
-                <div class="analysis-item">
-                    <span class="analysis-label">Fréquence dominante</span>
-                    <span id="frequency-value" class="analysis-value">-- Hz</span>
-                </div>
-                <div class="analysis-item">
-                    <span class="analysis-label">Intensité moyenne</span>
-                    <span id="intensity-value" class="analysis-value">-- dB</span>
-                </div>
-                <div class="analysis-item">
-                    <span class="analysis-label">Tempo détecté</span>
-                    <span id="tempo-value" class="analysis-value">-- BPM</span>
-                </div>
-                <div class="analysis-item">
-                    <span class="analysis-label">Durée</span>
-                    <span id="duration-value" class="analysis-value">-- s</span>
-                </div>
-            </div>
-        </section>
-
-        <section class="result-section">
-            <h2>Rythme généré</h2>
-            <div id="rhythm-output" class="rhythm-container">
-                <div class="rhythm-type">
-                    <span class="rhythm-label">Type de beat :</span>
-                    <span id="beat-type" class="rhythm-value">En attente d'analyse</span>
-                </div>
-                <div class="rhythm-pattern">
-                    <span class="rhythm-label">Pattern :</span>
-                    <div id="beat-pattern" class="pattern-display">
-                        <span class="pattern-placeholder">Aucun pattern généré</span>
+                <div class="analysis-card">
+                    <div class="card-icon">🎵</div>
+                    <div class="card-content">
+                        <span class="card-label">Notes détectées</span>
+                        <span id="notes-count" class="card-value">0</span>
                     </div>
                 </div>
-                <div class="rhythm-signature">
-                    <span class="rhythm-label">Signature rythmique :</span>
-                    <span id="time-signature" class="rhythm-value">--/--</span>
+                <div class="analysis-card">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-content">
+                        <span class="card-label">Durée</span>
+                        <span id="pattern-duration" class="card-value">0.0s</span>
+                    </div>
                 </div>
-                <div class="rhythm-controls">
-                    <button id="play-beat-button" class="play-beat-button" disabled>
-                        ▶ Écouter le beat
-                    </button>
+                <div class="analysis-card">
+                    <div class="card-icon">🎼</div>
+                    <div class="card-content">
+                        <span class="card-label">Type</span>
+                        <span id="pattern-type" class="card-value">-</span>
+                    </div>
+                </div>
+                <div class="analysis-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <span class="card-label">Complexité</span>
+                        <span id="pattern-complexity" class="card-value">-</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section class="concept-section">
-            <h2>Explorez le son et le rythme</h2>
-            <p>
-                Cette application expérimentale vous permet de capturer et visualiser 
-                les sons qui vous entourent. Créez des patterns rythmiques, explorez 
-                les textures sonores et donnez vie à vos idées musicales.
-            </p>
+        <!-- Tips -->
+        <section class="tips-section">
+            <h3>💡 Conseils</h3>
+            <ul>
+                <li>Enregistrez des sons rythmiques (claps, beatbox, percussions)</li>
+                <li>Chaque enregistrement crée un nouveau sample</li>
+                <li>Combinez plusieurs samples pour créer une composition</li>
+                <li>Expérimentez avec différents instruments !</li>
+            </ul>
         </section>
     </main>
 
     <footer>
-        <p>&copy; 2026 SoundRhythm - Application expérimentale</p>
+        <p>&copy; 2026 SoundRhythm Studio - Production musicale expérimentale</p>
     </footer>
+    
     <script src="script.js"></script>
 </body>
 </html>
