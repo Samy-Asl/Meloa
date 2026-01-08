@@ -1,888 +1,921 @@
 /* ===== RESET ===== */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+margin: 0;
+padding: 0;
+box-sizing: border-box;
 }
 
 :root {
-    --gold: #d4af37;
-    --gold-light: #f4d03f;
-    --gold-dark: #b8860b;
-    --metal: #4a5568;
-    --metal-light: #718096;
-    --metal-dark: #2d3748;
-    --metal-darker: #1a202c;
-    --purple: #6a1b9a;
-    --purple-light: #8e24aa;
-    --success: #10b981;
-    --error: #ef4444;
-    --info: #3b82f6;
-    --white: #ffffff;
-    --black: #000000;
+--gold: #d4af37;
+--gold-light: #f4d03f;
+--gold-dark: #b8860b;
+--metal: #4a5568;
+--metal-light: #718096;
+--metal-dark: #2d3748;
+--metal-darker: #1a202c;
+--purple: #6a1b9a;
+--purple-light: #8e24aa;
+--success: #10b981;
+--error: #ef4444;
+--info: #3b82f6;
+--white: #ffffff;
+--black: #000000;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: var(--metal-darker);
-    color: var(--white);
-    overflow: hidden;
-    height: 100vh;
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background: var(--metal-darker);
+color: var(--white);
+overflow: hidden;
+height: 100vh;
 }
 
 /* ===== TOP BAR ===== */
 .top-bar {
-    background: linear-gradient(135deg, var(--metal-dark), var(--metal));
-    border-bottom: 2px solid var(--gold);
-    padding: 0.8rem 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+background: linear-gradient(135deg, var(--metal-dark), var(--metal));
+border-bottom: 2px solid var(--gold);
+padding: 0.8rem 1.5rem;
+display: flex;
+justify-content: space-between;
+align-items: center;
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .logo h1 {
-    font-size: 1.5rem;
-    font-weight: 300;
-    letter-spacing: 2px;
-    background: linear-gradient(90deg, var(--gold-light), var(--gold));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+font-size: 1.5rem;
+font-weight: 300;
+letter-spacing: 2px;
+background: linear-gradient(90deg, var(--gold-light), var(--gold));
+-webkit-background-clip: text;
+background-clip: text;
+-webkit-text-fill-color: transparent;
 }
 
 .project-controls {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
+display: flex;
+gap: 0.5rem;
+align-items: center;
 }
 
 .project-name-input {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--metal-light);
-    color: var(--white);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 1rem;
-    min-width: 200px;
+background: rgba(0, 0, 0, 0.3);
+border: 1px solid var(--metal-light);
+color: var(--white);
+padding: 0.5rem 1rem;
+border-radius: 8px;
+font-size: 1rem;
+min-width: 200px;
 }
 
 .icon-btn {
-    background: var(--metal);
-    border: 1px solid var(--gold);
-    color: var(--white);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 1.2rem;
-    transition: all 0.3s ease;
+background: var(--metal);
+border: 1px solid var(--gold);
+color: var(--white);
+padding: 0.5rem 1rem;
+border-radius: 8px;
+cursor: pointer;
+font-size: 1.2rem;
+transition: all 0.3s ease;
 }
 
 .icon-btn:hover {
-    background: var(--gold-dark);
-    transform: translateY(-2px);
+background: var(--gold-dark);
+transform: translateY(-2px);
 }
 
 /* ===== MAIN LAYOUT ===== */
 .main-container {
-    display: flex;
-    height: calc(100vh - 60px);
+display: flex;
+height: calc(100vh - 60px);
 }
 
 /* ===== SIDEBAR ===== */
 .sidebar {
-    width: 280px;
-    background: linear-gradient(180deg, var(--metal-dark), var(--metal-darker));
-    border-right: 2px solid var(--gold);
-    padding: 1rem;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+width: 280px;
+background: linear-gradient(180deg, var(--metal-dark), var(--metal-darker));
+border-right: 2px solid var(--gold);
+padding: 1rem;
+overflow-y: auto;
+display: flex;
+flex-direction: column;
+gap: 1.5rem;
 }
 
 .section {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--metal-light);
-    border-radius: 12px;
-    padding: 1rem;
+background: rgba(0, 0, 0, 0.3);
+border: 1px solid var(--metal-light);
+border-radius: 12px;
+padding: 1rem;
 }
 
 .section h3 {
-    color: var(--gold-light);
-    font-size: 1rem;
-    font-weight: 500;
-    margin-bottom: 1rem;
-    letter-spacing: 1px;
+color: var(--gold-light);
+font-size: 1rem;
+font-weight: 500;
+margin-bottom: 1rem;
+letter-spacing: 1px;
 }
 
 /* Record Zone */
 .record-zone {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 1rem;
 }
 
 .record-btn {
-    width: 100%;
-    background: linear-gradient(135deg, var(--error), #dc2626);
-    border: 2px solid #fca5a5;
-    color: var(--white);
-    padding: 1rem;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
+width: 100%;
+background: linear-gradient(135deg, var(--error), #dc2626);
+border: 2px solid #fca5a5;
+color: var(--white);
+padding: 1rem;
+border-radius: 12px;
+font-size: 1.1rem;
+font-weight: 600;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 0.5rem;
+transition: all 0.3s ease;
 }
 
 .record-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px var(--error);
+transform: scale(1.05);
+box-shadow: 0 0 20px var(--error);
 }
 
 .record-btn.recording {
-    animation: recordPulse 1s infinite;
+animation: recordPulse 1s infinite;
 }
 
 @keyframes recordPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+0%, 100% { opacity: 1; }
+50% { opacity: 0.7; }
 }
 
 .rec-timer {
-    font-size: 1.3rem;
-    font-weight: 300;
-    color: var(--gold-light);
-    font-variant-numeric: tabular-nums;
+font-size: 1.3rem;
+font-weight: 300;
+color: var(--gold-light);
+font-variant-numeric: tabular-nums;
 }
 
 /* Instrument Select */
 .instrument-select {
-    margin-top: 1rem;
+margin-top: 1rem;
 }
 
 .instrument-select label {
-    display: block;
-    color: var(--metal-light);
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
+display: block;
+color: var(--metal-light);
+font-size: 0.9rem;
+margin-bottom: 0.5rem;
 }
 
 .styled-select {
-    width: 100%;
-    background: var(--metal);
-    border: 1px solid var(--gold);
-    color: var(--white);
-    padding: 0.7rem;
-    border-radius: 8px;
-    font-size: 1rem;
-    cursor: pointer;
+width: 100%;
+background: var(--metal);
+border: 1px solid var(--gold);
+color: var(--white);
+padding: 0.7rem;
+border-radius: 8px;
+font-size: 1rem;
+cursor: pointer;
 }
 
 /* Master Controls */
 .master-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+display: flex;
+flex-direction: column;
+gap: 1rem;
 }
 
 .control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+display: flex;
+flex-direction: column;
+gap: 0.5rem;
 }
 
 .control-group label {
-    color: var(--metal-light);
-    font-size: 0.9rem;
-    display: flex;
-    justify-content: space-between;
+color: var(--metal-light);
+font-size: 0.9rem;
+display: flex;
+justify-content: space-between;
 }
 
 .control-group label span {
-    color: var(--gold-light);
-    font-weight: 600;
+color: var(--gold-light);
+font-weight: 600;
 }
 
 .slider {
-    width: 100%;
-    height: 6px;
-    border-radius: 5px;
-    background: linear-gradient(90deg, var(--metal), var(--gold));
-    outline: none;
-    -webkit-appearance: none;
+width: 100%;
+height: 6px;
+border-radius: 5px;
+background: linear-gradient(90deg, var(--metal), var(--gold));
+outline: none;
+-webkit-appearance: none;
 }
 
 .slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--gold);
-    cursor: pointer;
-    box-shadow: 0 0 8px var(--gold);
+-webkit-appearance: none;
+width: 16px;
+height: 16px;
+border-radius: 50%;
+background: var(--gold);
+cursor: pointer;
+box-shadow: 0 0 8px var(--gold);
 }
 
 .slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--gold);
-    cursor: pointer;
-    box-shadow: 0 0 8px var(--gold);
-    border: none;
+width: 16px;
+height: 16px;
+border-radius: 50%;
+background: var(--gold);
+cursor: pointer;
+box-shadow: 0 0 8px var(--gold);
+border: none;
 }
 
 /* Project Info */
 .project-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
+display: flex;
+flex-direction: column;
+gap: 0.8rem;
 }
 
 .info-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
+display: flex;
+justify-content: space-between;
+padding: 0.5rem;
+background: rgba(0, 0, 0, 0.2);
+border-radius: 6px;
 }
 
 .info-item .label {
-    color: var(--metal-light);
+color: var(--metal-light);
 }
 
 .info-item .value {
-    color: var(--gold-light);
-    font-weight: 600;
+color: var(--gold-light);
+font-weight: 600;
 }
 
 /* ===== WORKSPACE ===== */
 .workspace {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: var(--metal-darker);
-    overflow: hidden;
+flex: 1;
+display: flex;
+flex-direction: column;
+background: var(--metal-darker);
+overflow: hidden;
 }
 
 /* Transport Bar */
 .transport-bar {
-    background: linear-gradient(135deg, var(--metal-dark), var(--metal));
-    border-bottom: 1px solid var(--gold);
-    padding: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 2rem;
+background: linear-gradient(135deg, var(--metal-dark), var(--metal));
+border-bottom: 1px solid var(--gold);
+padding: 1rem;
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 2rem;
 }
 
 .transport-controls {
-    display: flex;
-    gap: 0.5rem;
+display: flex;
+gap: 0.5rem;
 }
 
 .transport-btn {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border: 2px solid var(--metal-light);
-    background: var(--metal);
-    color: var(--white);
-    font-size: 1.3rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+width: 50px;
+height: 50px;
+border-radius: 50%;
+border: 2px solid var(--metal-light);
+background: var(--metal);
+color: var(--white);
+font-size: 1.3rem;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.3s ease;
 }
 
 .transport-btn:hover {
-    transform: scale(1.1);
-    border-color: var(--gold);
+transform: scale(1.1);
+border-color: var(--gold);
 }
 
 .transport-btn.play:hover {
-    background: var(--success);
+background: var(--success);
 }
 
 .transport-btn.stop:hover {
-    background: var(--error);
+background: var(--error);
 }
 
 .transport-btn.loop.active {
-    background: var(--info);
-    border-color: var(--info);
+background: var(--info);
+border-color: var(--info);
 }
 
 .playhead-info {
-    flex: 1;
-    display: flex;
-    justify-content: center;
+flex: 1;
+display: flex;
+justify-content: center;
 }
 
 .time-display {
-    font-size: 1.5rem;
-    font-weight: 300;
-    color: var(--gold-light);
-    font-variant-numeric: tabular-nums;
+font-size: 1.5rem;
+font-weight: 300;
+color: var(--gold-light);
+font-variant-numeric: tabular-nums;
 }
 
 .time-display .separator {
-    color: var(--metal-light);
-    margin: 0 0.5rem;
+color: var(--metal-light);
+margin: 0 0.5rem;
 }
 
 .zoom-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
+display: flex;
+align-items: center;
+gap: 0.8rem;
 }
 
 .zoom-btn {
-    width: 35px;
-    height: 35px;
-    border-radius: 6px;
-    border: 1px solid var(--metal-light);
-    background: var(--metal);
-    color: var(--white);
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
+width: 35px;
+height: 35px;
+border-radius: 6px;
+border: 1px solid var(--metal-light);
+background: var(--metal);
+color: var(--white);
+font-size: 1.2rem;
+cursor: pointer;
+transition: all 0.3s ease;
 }
 
 .zoom-btn:hover {
-    background: var(--gold-dark);
+background: var(--gold-dark);
 }
 
 #zoom-level {
-    color: var(--gold-light);
-    font-weight: 600;
-    min-width: 50px;
-    text-align: center;
+color: var(--gold-light);
+font-weight: 600;
+min-width: 50px;
+text-align: center;
 }
 
 /* Timeline */
 .timeline-container {
-    position: relative;
-    background: rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid var(--metal);
-    height: 40px;
+position: relative;
+background: rgba(0, 0, 0, 0.3);
+border-bottom: 1px solid var(--metal);
+height: 40px;
 }
 
 .timeline-ruler {
-    height: 100%;
-    display: flex;
-    position: relative;
-    padding: 0 1rem;
+height: 100%;
+display: flex;
+position: relative;
+padding: 0 1rem;
 }
 
 .time-marker {
-    position: absolute;
-    top: 0;
-    color: var(--metal-light);
-    font-size: 0.8rem;
-    padding: 0.5rem 0.3rem;
-    border-left: 1px solid var(--metal-light);
+position: absolute;
+top: 0;
+color: var(--metal-light);
+font-size: 0.8rem;
+padding: 0.5rem 0.3rem;
+border-left: 1px solid var(--metal-light);
 }
 
 .playhead-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+pointer-events: none;
 }
 
 /* Tracks Container */
 .tracks-container {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem;
+flex: 1;
+overflow-y: auto;
+padding: 1rem;
 }
 
 .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--metal-light);
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+height: 100%;
+color: var(--metal-light);
 }
 
 .empty-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
+font-size: 4rem;
+margin-bottom: 1rem;
 }
 
 .empty-state h2 {
-    color: var(--gold-light);
-    font-weight: 300;
-    margin-bottom: 0.5rem;
+color: var(--gold-light);
+font-weight: 300;
+margin-bottom: 0.5rem;
 }
 
 /* Track */
 .track {
-    background: linear-gradient(135deg, rgba(74, 85, 104, 0.4), rgba(45, 55, 72, 0.4));
-    border: 1px solid var(--gold);
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    overflow: hidden;
-    transition: all 0.3s ease;
+background: linear-gradient(135deg, rgba(74, 85, 104, 0.4), rgba(45, 55, 72, 0.4));
+border: 1px solid var(--gold);
+border-radius: 12px;
+margin-bottom: 1rem;
+overflow: hidden;
+transition: all 0.3s ease;
 }
 
 .track:hover {
-    box-shadow: 0 4px 20px rgba(212, 175, 55, 0.3);
+box-shadow: 0 4px 20px rgba(212, 175, 55, 0.3);
 }
 
 .track-header {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--metal);
+background: rgba(0, 0, 0, 0.3);
+padding: 1rem;
+display: flex;
+justify-content: space-between;
+align-items: center;
+border-bottom: 1px solid var(--metal);
 }
 
 .track-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+display: flex;
+align-items: center;
+gap: 1rem;
 }
 
 .track-number {
-    background: var(--gold);
-    color: var(--black);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 1.1rem;
+background: var(--gold);
+color: var(--black);
+width: 40px;
+height: 40px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+font-weight: 600;
+font-size: 1.1rem;
 }
 
 .track-details h4 {
-    color: var(--gold-light);
-    font-size: 1.1rem;
-    font-weight: 500;
+color: var(--gold-light);
+font-size: 1.1rem;
+font-weight: 500;
 }
 
 .track-meta {
-    color: var(--metal-light);
-    font-size: 0.9rem;
-    margin-top: 0.3rem;
+color: var(--metal-light);
+font-size: 0.9rem;
+margin-top: 0.3rem;
 }
 
 .track-controls {
-    display: flex;
-    gap: 0.5rem;
+display: flex;
+gap: 0.5rem;
 }
 
 .track-btn {
-    background: var(--metal);
-    border: 1px solid var(--metal-light);
-    color: var(--white);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
+background: var(--metal);
+border: 1px solid var(--metal-light);
+color: var(--white);
+padding: 0.5rem 1rem;
+border-radius: 8px;
+cursor: pointer;
+font-size: 0.9rem;
+transition: all 0.3s ease;
 }
 
 .track-btn:hover {
-    background: var(--gold-dark);
-    border-color: var(--gold);
+background: var(--gold-dark);
+border-color: var(--gold);
 }
 
 .track-btn.solo {
-    border-color: var(--info);
+border-color: var(--info);
 }
 
 .track-btn.solo.active {
-    background: var(--info);
+background: var(--info);
 }
 
 .track-btn.mute {
-    border-color: var(--error);
+border-color: var(--error);
 }
 
 .track-btn.mute.active {
-    background: var(--error);
+background: var(--error);
 }
 
 .track-btn.edit {
-    border-color: var(--gold);
+border-color: var(--gold);
 }
 
 .track-btn.delete {
-    border-color: var(--error);
+border-color: var(--error);
 }
 
 .track-btn.delete:hover {
-    background: var(--error);
+background: var(--error);
 }
 
 /* Track Content */
 .track-content {
-    padding: 1rem;
-    position: relative;
+padding: 1rem;
+position: relative;
 }
 
 .track-waveform {
-    width: 100%;
-    height: 80px;
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 8px;
-    position: relative;
-    overflow: hidden;
+width: 100%;
+height: 80px;
+background: rgba(0, 0, 0, 0.5);
+border-radius: 8px;
+position: relative;
+overflow: hidden;
 }
 
 .waveform-canvas {
-    width: 100%;
-    height: 100%;
+width: 100%;
+height: 100%;
 }
 
 .track-timeline {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 0.8rem;
+display: flex;
+align-items: center;
+gap: 1rem;
+margin-top: 0.8rem;
 }
 
 .track-progress {
-    flex: 1;
-    height: 6px;
-    background: var(--metal);
-    border-radius: 3px;
-    position: relative;
-    overflow: hidden;
+flex: 1;
+height: 6px;
+background: var(--metal);
+border-radius: 3px;
+position: relative;
+overflow: hidden;
 }
 
 .track-progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--gold-dark), var(--gold-light));
-    width: 0%;
-    transition: width 0.1s linear;
+height: 100%;
+background: linear-gradient(90deg, var(--gold-dark), var(--gold-light));
+width: 0%;
+transition: width 0.1s linear;
 }
 
 .track-time {
-    color: var(--metal-light);
-    font-size: 0.9rem;
-    font-variant-numeric: tabular-nums;
+color: var(--metal-light);
+font-size: 0.9rem;
+font-variant-numeric: tabular-nums;
 }
 
 /* ===== MODAL ===== */
 .modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
+display: none;
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background: rgba(0, 0, 0, 0.8);
+z-index: 1000;
+align-items: center;
+justify-content: center;
 }
 
 .modal.open {
-    display: flex;
+display: flex;
 }
 
 .modal-content {
-    background: linear-gradient(135deg, var(--metal-dark), var(--metal));
-    border: 2px solid var(--gold);
-    border-radius: 16px;
-    width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+background: linear-gradient(135deg, var(--metal-dark), var(--metal));
+border: 2px solid var(--gold);
+border-radius: 16px;
+width: 90%;
+max-width: 600px;
+max-height: 80vh;
+overflow: hidden;
+display: flex;
+flex-direction: column;
 }
 
 .modal-header {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--gold);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+background: rgba(0, 0, 0, 0.3);
+padding: 1.5rem;
+border-bottom: 1px solid var(--gold);
+display: flex;
+justify-content: space-between;
+align-items: center;
 }
 
 .modal-header h2 {
-    color: var(--gold-light);
-    font-size: 1.3rem;
-    font-weight: 500;
+color: var(--gold-light);
+font-size: 1.3rem;
+font-weight: 500;
 }
 
 .close-modal {
-    background: none;
-    border: none;
-    color: var(--white);
-    font-size: 2rem;
-    cursor: pointer;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.3s ease;
+background: none;
+border: none;
+color: var(--white);
+font-size: 2rem;
+cursor: pointer;
+width: 40px;
+height: 40px;
+display: flex;
+align-items: center;
+justify-content: center;
+border-radius: 50%;
+transition: all 0.3s ease;
 }
 
 .close-modal:hover {
-    background: var(--error);
+background: var(--error);
 }
 
 .modal-body {
-    padding: 1.5rem;
-    overflow-y: auto;
+padding: 1.5rem;
+overflow-y: auto;
 }
 
 .editor-section {
-    margin-bottom: 2rem;
+margin-bottom: 2rem;
 }
 
 .editor-section h3 {
-    color: var(--gold-light);
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
+color: var(--gold-light);
+font-size: 1.1rem;
+margin-bottom: 1rem;
 }
 
 .editor-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+display: flex;
+flex-direction: column;
+gap: 1.5rem;
 }
 
 .editor-control {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+display: flex;
+flex-direction: column;
+gap: 0.5rem;
 }
 
 .editor-control label {
-    color: var(--white);
-    font-size: 0.95rem;
-    display: flex;
-    justify-content: space-between;
+color: var(--white);
+font-size: 0.95rem;
+display: flex;
+justify-content: space-between;
 }
 
 .editor-control label span {
-    color: var(--gold-light);
-    font-weight: 600;
+color: var(--gold-light);
+font-weight: 600;
 }
 
 .pan-labels {
-    display: flex;
-    justify-content: space-between;
-    color: var(--metal-light);
-    font-size: 0.8rem;
-    margin-top: 0.3rem;
+display: flex;
+justify-content: space-between;
+color: var(--metal-light);
+font-size: 0.8rem;
+margin-top: 0.3rem;
 }
 
 .editor-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 2rem;
+display: flex;
+gap: 1rem;
+margin-top: 2rem;
 }
 
 .btn-primary,
 .btn-secondary {
-    flex: 1;
-    padding: 1rem;
-    border-radius: 10px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
+flex: 1;
+padding: 1rem;
+border-radius: 10px;
+font-size: 1rem;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.3s ease;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--success), #059669);
-    border: 2px solid var(--success);
-    color: var(--white);
+background: linear-gradient(135deg, var(--success), #059669);
+border: 2px solid var(--success);
+color: var(--white);
 }
 
 .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.5);
+transform: translateY(-2px);
+box-shadow: 0 4px 15px rgba(16, 185, 129, 0.5);
 }
 
 .btn-secondary {
-    background: var(--metal);
-    border: 2px solid var(--metal-light);
-    color: var(--white);
+background: var(--metal);
+border: 2px solid var(--metal-light);
+color: var(--white);
 }
 
 .btn-secondary:hover {
-    background: var(--metal-light);
+background: var(--metal-light);
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-    .sidebar {
-        width: 100%;
-        max-height: 40vh;
-    }
+.sidebar {
+    width: 100%;
+    max-height: 40vh;
+}
 
-    .main-container {
-        flex-direction: column;
-    }
+.main-container {
+    flex-direction: column;
+}
 
-    .transport-bar {
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
+.transport-bar {
+    flex-wrap: wrap;
+    gap: 1rem;
+}
 
-    .modal-content {
-        width: 95%;
-    }
+.modal-content {
+    width: 95%;
+}
 }
 
 /* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+width: 8px;
+height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--metal-darker);
+background: var(--metal-darker);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--gold-dark);
-    border-radius: 4px;
+background: var(--gold-dark);
+border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--gold);
+background: var(--gold);
 }
 
 /* ===========================
-   📱 MOBILE ADAPTATION
+📱 MOBILE ADAPTATION
 =========================== */
 @media (max-width: 768px) {
 
-    body {
-        overflow: hidden;
-    }
+body {
+    overflow: hidden;
+}
 
-    /* --- Top Bar --- */
-    .top-bar {
-        padding: 0.6rem 1rem;
-    }
+/* --- Top Bar --- */
+.top-bar {
+    padding: 0.6rem 1rem;
+}
 
-    .logo h1 {
-        font-size: 1.2rem;
-    }
+.logo h1 {
+    font-size: 1.2rem;
+}
 
-    .project-controls {
-        display: none; /* trop dense pour mobile */
-    }
+.project-controls {
+    display: none; /* trop dense pour mobile */
+}
 
-    .mobile-menu-btn {
-        background: var(--metal);
-        border: 1px solid var(--gold);
-        color: var(--white);
-        font-size: 1.5rem;
-        padding: 0.4rem 0.7rem;
-        border-radius: 8px;
-        cursor: pointer;
-    }
+.mobile-menu-btn {
+    background: var(--metal);
+    border: 1px solid var(--gold);
+    color: var(--white);
+    font-size: 1.5rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
 
-    /* --- Layout --- */
-    .main-container {
-        flex-direction: column;
-        height: calc(100vh - 50px);
-    }
+/* --- Layout --- */
+.main-container {
+    flex-direction: column;
+    height: calc(100vh - 50px);
+}
 
-    /* --- Sidebar devient un panneau --- */
-    .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100vh;
-        z-index: 2000;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-        padding-top: 70px;
-    }
+@media (max-width: 768px) {
 
-    .sidebar.open {
-        transform: translateX(0);
-    }
+/* ===== Overlay plein écran ===== */
+.sidebar {
+    position: fixed;
+    inset: 0; /* équivalent top:0 left:0 right:0 bottom:0 */
+    width: 100vw;
+    height: 100vh;
+    z-index: 3000;
 
-    /* --- Workspace plein écran --- */
-    .workspace {
-        flex: 1;
-        overflow: hidden;
-    }
+    background: linear-gradient(
+        160deg,
+        rgba(20, 20, 25, 0.98),
+        rgba(40, 40, 50, 0.98)
+    );
 
-    /* --- Transport bar compacte --- */
-    .transport-bar {
-        padding: 0.6rem;
-        gap: 0.8rem;
-    }
+    transform: translateX(-100%);
+    transition: transform 0.35s ease;
+    padding: 1.5rem;
 
-    .transport-btn {
-        width: 42px;
-        height: 42px;
-        font-size: 1.1rem;
-    }
+    overflow-y: auto;
+}
 
-    .time-display {
-        font-size: 1.2rem;
-    }
+.sidebar.open {
+    transform: translateX(0);
+}
 
-    .zoom-controls {
-        display: none; /* trop petit sur mobile */
-    }
+/* ===== Bouton fermer ===== */
+.sidebar-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
 
-    /* --- Tracks --- */
-    .tracks-container {
-        padding: 0.6rem;
-    }
+    background: none;
+    border: 1px solid var(--gold);
+    color: var(--white);
 
-    .track-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.8rem;
-    }
+    font-size: 1.4rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 10px;
+    cursor: pointer;
+}
 
-    .track-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
+/* ===== Empêche le scroll du body ===== */
+body.sidebar-open {
+    overflow: hidden;
+}
+}
 
-    .track-btn {
-        flex: 1;
-        text-align: center;
-        padding: 0.6rem;
-        font-size: 1rem;
-    }
 
-    /* --- Modal plein écran --- */
-    .modal-content {
-        width: 100%;
-        height: 100%;
-        max-width: none;
-        max-height: none;
-        border-radius: 0;
-    }
+/* --- Workspace plein écran --- */
+.workspace {
+    flex: 1;
+    overflow: hidden;
+}
 
-    .modal-body {
-        padding: 1rem;
-    }
+/* --- Transport bar compacte --- */
+.transport-bar {
+    padding: 0.6rem;
+    gap: 0.8rem;
+}
+
+.transport-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 1.1rem;
+}
+
+.time-display {
+    font-size: 1.2rem;
+}
+
+.zoom-controls {
+    display: none; /* trop petit sur mobile */
+}
+
+/* --- Tracks --- */
+.tracks-container {
+    padding: 0.6rem;
+}
+
+.track-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+}
+
+.track-controls {
+    width: 100%;
+    justify-content: space-between;
+}
+
+.track-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.6rem;
+    font-size: 1rem;
+}
+
+/* --- Modal plein écran --- */
+.modal-content {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+}
+
+.modal-body {
+    padding: 1rem;
+}
 }
