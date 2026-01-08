@@ -653,15 +653,20 @@ function playNote(beat, instrument, time, pan = 0) {
 function playSynth(freq, vel, time, dur, panner) {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
-    
-    osc.type = 'sawtooth';
+    const filter = audioContext.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1800;
+
+
+    osc.type = 'triangle';
     osc.frequency.value = freq;
     
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(vel * 0.3, time + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
     
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(panner);
     panner.connect(masterGainNode);
     
@@ -673,7 +678,10 @@ function playPiano(freq, vel, time, dur, panner) {
     for (let i = 1; i <= 3; i++) {
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 2000;
+
         osc.type = 'sine';
         osc.frequency.value = freq * i;
         
@@ -682,7 +690,8 @@ function playPiano(freq, vel, time, dur, panner) {
         gain.gain.linearRampToValueAtTime(amp, time + 0.01);
         gain.gain.exponentialRampToValueAtTime(0.01, time + dur * 1.5);
         
-        osc.connect(gain);
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(panner);
         panner.connect(masterGainNode);
         
@@ -694,14 +703,18 @@ function playPiano(freq, vel, time, dur, panner) {
 function playGuitar(freq, vel, time, dur, panner) {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1200;
+
     
-    osc.type = 'square';
+    osc.type = 'triangle';  
     osc.frequency.value = freq;
     
     gain.gain.setValueAtTime(vel * 0.4, time);
     gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
-    
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(panner);
     panner.connect(masterGainNode);
     
@@ -712,15 +725,19 @@ function playGuitar(freq, vel, time, dur, panner) {
 function playBass(freq, vel, time, dur, panner) {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
-    
-    osc.type = 'sawtooth';
+    const filter = audioContext.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 600;
+
+    osc.type = 'sine';
     osc.frequency.value = freq * 0.5;
     
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(vel * 0.5, time + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
-    
-    osc.connect(gain);
+
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(panner);
     panner.connect(masterGainNode);
     
@@ -732,14 +749,19 @@ function playDrum(freq, vel, time, panner) {
     // Simplified drum synthesis
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
     
+    osc.type = 'sine';
+    filter.frequency.value = 2000;
+
     osc.frequency.setValueAtTime(freq < 150 ? 150 : 200, time);
     osc.frequency.exponentialRampToValueAtTime(freq < 150 ? 30 : 100, time + 0.1);
     
-    gain.gain.setValueAtTime(vel * 0.8, time);
+    gain.gain.setValueAtTime(vel * 0.5, time);
     gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
     
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(panner);
     panner.connect(masterGainNode);
     
@@ -753,7 +775,10 @@ function playPad(freq, vel, time, dur, panner) {
     detunes.forEach(detune => {
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 2500;
+
         osc.type = 'sine';
         osc.frequency.value = freq;
         osc.detune.value = detune * 100;
@@ -762,7 +787,8 @@ function playPad(freq, vel, time, dur, panner) {
         gain.gain.linearRampToValueAtTime(vel * 0.1, time + 0.3);
         gain.gain.linearRampToValueAtTime(0.01, time + dur);
         
-        osc.connect(gain);
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(panner);
         panner.connect(masterGainNode);
         
