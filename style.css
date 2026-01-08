@@ -419,6 +419,66 @@ main {
                 inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
+.rhythm-controls {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
+}
+
+.play-beat-button {
+    background: linear-gradient(135deg, var(--dore-sombre), var(--dore));
+    color: var(--blanc);
+    border: 2px solid var(--dore-clair);
+    padding: 1rem 2.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px var(--noir-transparent),
+                0 0 20px rgba(212, 175, 55, 0.3),
+                inset 0 1px 2px rgba(255, 255, 255, 0.2);
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+.play-beat-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, var(--gris-metal), var(--gris-metal-clair));
+    border-color: var(--gris-metal-clair);
+}
+
+.play-beat-button:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--noir-transparent),
+                0 0 30px var(--dore),
+                inset 0 1px 3px rgba(255, 255, 255, 0.3);
+    background: linear-gradient(135deg, var(--dore), var(--dore-clair));
+}
+
+.play-beat-button:not(:disabled):active {
+    transform: translateY(0);
+}
+
+.play-beat-button.playing {
+    background: linear-gradient(135deg, #4444ff, #0000cc);
+    border-color: #6666ff;
+    animation: buttonPulse 1s ease-in-out infinite;
+}
+
+@keyframes buttonPulse {
+    0%, 100% {
+        box-shadow: 0 4px 15px var(--noir-transparent),
+                    0 0 20px rgba(68, 68, 255, 0.5);
+    }
+    50% {
+        box-shadow: 0 4px 15px var(--noir-transparent),
+                    0 0 30px rgba(68, 68, 255, 0.8);
+    }
+}
+
 .rhythm-label {
     font-size: 0.85rem;
     color: var(--gris-metal-clair);
