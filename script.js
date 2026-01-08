@@ -32,6 +32,9 @@ const beatType = document.getElementById("beat-type");
 const beatPattern = document.getElementById("beat-pattern");
 const timeSignature = document.getElementById("time-signature");
 const pulseIndicator = document.getElementById("pulse-indicator");
+const playBeatButton = document.getElementById("play-beat-button");
+
+let isPlaying = false;
 
 // ==========================
 // 🎛️ BOUTON ENREGISTREMENT
@@ -52,6 +55,16 @@ recordButton.addEventListener("click", async () => {
     stopRecording();
     recordButton.textContent = "Enregistrer un son";
     updateStatus("completed", "Analyse terminée");
+  }
+});
+
+// ==========================
+// 🎵 BOUTON LECTURE BEAT
+// ==========================
+
+playBeatButton.addEventListener("click", () => {
+  if (!isPlaying) {
+    playEnhancedBeat();
   }
 });
 
@@ -112,10 +125,8 @@ function stopRecording() {
   // Analyser et afficher les résultats
   analyzeSequence();
 
-  // Rejouer automatiquement après enregistrement
-  setTimeout(() => {
-    playSequence();
-  }, 500);
+  // Activer le bouton de lecture
+  playBeatButton.disabled = false;
 }
 
 // ==========================
@@ -299,6 +310,8 @@ function resetDisplay() {
   beatType.textContent = "En attente d'analyse";
   timeSignature.textContent = "--/--";
   beatPattern.innerHTML = '<span class="pattern-placeholder">Aucun pattern généré</span>';
+  playBeatButton.disabled = true;
+  playBeatButton.textContent = "▶ Écouter le beat";
 }
 
 // ==========================
@@ -336,6 +349,179 @@ function playSequence() {
   setTimeout(() => {
     updateStatus("inactive", "Prêt à enregistrer");
   }, playbackDuration);
+}
+
+// ==========================
+// 🎵 LECTURE BEAT AMÉLIORÉE
+// ==========================
+
+function playEnhancedBeat() {
+  if (!soundSequence.length || isPlaying) return;
+
+  isPlaying = true;
+  playBeatButton.classList.add("playing");
+  playBeatButton.textContent = "🎵 Lecture en cours...";
+  updateStatus("playing", "Lecture du beat...");
+
+  const now = audioContext.currentTime;
+  const hits = soundSequence.filter(e => e.isHit);
+  
+  if (hits.length === 0) {
+    isPlaying = false;
+    playBeatButton.classList.remove("playing");
+    playBeatButton.textContent = "▶ Écouter le beat";
+    return;
+  }
+
+  // Calculer le tempo
+  const intervals = [];
+  for (let i = 1; i < hits.length; i++) {
+    intervals.push(hits[i].time - hits[i - 1].time);
+  }
+  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length || 0.5;
+  const beatDuration = avgInterval;
+
+  // Nombre de mesures à jouer (au moins 8 beats)
+  const numBeats = Math.max(8, hits.length);
+  
+  // Jouer chaque beat
+  for (let i = 0; i < numBeats; i++) {
+    const beatTime = now + i * beatDuration;
+    const hitIndex = i % hits.length;
+    const hit = hits[hitIndex];
+
+    // Déterminer le type de son selon la fréquence
+    if (hit.dominantFreq < 150) {
+      // Kick (basse fréquence)
+      createKick(beatTime, hit.energy);
+    } else if (hit.dominantFreq < 400) {
+      // Snare (fréquence moyenne)
+      createSnare(beatTime, hit.energy);
+    } else {
+      // HiHat (haute fréquence)
+      createHiHat(beatTime, hit.energy);
+    }
+
+    // Ajouter une mélodie basée sur la fréquence dominante
+    if (i % 2 === 0) {
+      createMelody(beatTime, hit.dominantFreq, hit.energy);
+    }
+  }
+
+  // Réinitialiser après la lecture
+  const totalDuration = numBeats * beatDuration * 1000;
+  setTimeout(() => {
+    isPlaying = false;
+    playBeatButton.classList.remove("playing");
+    playBeatButton.textContent = "▶ Écouter le beat";
+    updateStatus("inactive", "Prêt à enregistrer");
+  }, totalDuration);
+}
+
+// ==========================
+// 🥁 CRÉATION DES SONS
+// ==========================
+
+function createKick(time, energy) {
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+  
+  gain.gain.setValueAtTime(Math.min(energy * 2, 0.8), time);
+  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+  
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  osc.start(time);
+  osc.stop(time + 0.3);
+}
+
+function createSnare(time, energy) {
+  // Oscillateur pour le corps de la snare
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  
+  osc.type = "triangle";
+  osc.frequency.value = 200;
+  
+  gain.gain.setValueAtTime(Math.min(energy * 1.5, 0.5), time);
+  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+  
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  osc.start(time);
+  osc.stop(time + 0.2);
+  
+  // Noise pour l'effet "claquement"
+  const bufferSize = audioContext.sampleRate * 0.1;
+  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+  
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  
+  const noise = audioContext.createBufferSource();
+  const noiseGain = audioContext.createGain();
+  
+  noise.buffer = buffer;
+  noiseGain.gain.setValueAtTime(Math.min(energy * 0.8, 0.3), time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+  
+  noise.connect(noiseGain);
+  noiseGain.connect(audioContext.destination);
+  
+  noise.start(time);
+}
+
+function createHiHat(time, energy) {
+  const bufferSize = audioContext.sampleRate * 0.05;
+  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+  
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+  }
+  
+  const noise = audioContext.createBufferSource();
+  const gain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+  
+  noise.buffer = buffer;
+  filter.type = "highpass";
+  filter.frequency.value = 7000;
+  
+  gain.gain.setValueAtTime(Math.min(energy * 1.2, 0.4), time);
+  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+  
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  noise.start(time);
+}
+
+function createMelody(time, frequency, energy) {
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  
+  osc.type = "sine";
+  osc.frequency.value = frequency;
+  
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(Math.min(energy * 0.3, 0.2), time + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+  
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  osc.start(time);
+  osc.stop(time + 0.3);
 }
 
 // ==========================
