@@ -1,550 +1,749 @@
-// ==========================
-// 🎧 INITIALISATION AUDIO
-// ==========================
+// =============================================
+// 🎵 SOUNDRHYTHM STUDIO - COMPLETE REWRITE
+// =============================================
 
+// Audio Context
 let audioContext;
 let analyser;
 let microphone;
+let masterGain;
+
+// Recording State
 let isRecording = false;
+let recordingStartTime = 0;
+let recordingData = [];
 
-const fftSize = 2048;
-const captureInterval = 500; // 0.5 seconde
+// Samples Bank
+let samples = [];
+let currentInstrument = 'synth';
 
-let freqData;
-let timeData;
-let soundSequence = [];
-
-let startTime = 0;
-let captureTimer = null;
-
-// ==========================
-// 🎨 ÉLÉMENTS DOM
-// ==========================
-
-const recordButton = document.getElementById("record-button");
-const recordingStatus = document.getElementById("recording-status");
-const statusText = document.querySelector(".status-text");
-const frequencyValue = document.getElementById("frequency-value");
-const intensityValue = document.getElementById("intensity-value");
-const tempoValue = document.getElementById("tempo-value");
-const durationValue = document.getElementById("duration-value");
-const beatType = document.getElementById("beat-type");
-const beatPattern = document.getElementById("beat-pattern");
-const timeSignature = document.getElementById("time-signature");
-const pulseIndicator = document.getElementById("pulse-indicator");
-const playBeatButton = document.getElementById("play-beat-button");
-
+// Playback State
 let isPlaying = false;
+let loopEnabled = true;
+let currentTempo = 120;
+let mainVolume = 0.8;
 
-// ==========================
-// 🎛️ BOUTON ENREGISTREMENT
-// ==========================
+// Analysis
+const SAMPLE_RATE = 44100;
+const FFT_SIZE = 2048;
+const ONSET_THRESHOLD = 0.15; // Plus sensible pour détecter plus de beats
 
-recordButton.addEventListener("click", async () => {
-  if (!isRecording) {
-    try {
-      await startRecording();
-      recordButton.textContent = "Arrêter l'enregistrement";
-      updateStatus("recording", "Enregistrement en cours...");
-    } catch (error) {
-      console.error("Erreur d'accès au microphone:", error);
-      updateStatus("error", "Erreur: Microphone non accessible");
-      alert("Impossible d'accéder au microphone. Veuillez autoriser l'accès.");
+// DOM Elements
+const recordButton = document.getElementById('record-button');
+const recordingStatus = document.getElementById('recording-status');
+const statusText = document.querySelector('.status-text');
+const recordingTimer = document.getElementById('recording-timer');
+const waveformCanvas = document.getElementById('waveform-canvas');
+const beatGrid = document.getElementById('beat-grid');
+const samplePads = document.getElementById('sample-pads');
+const playButton = document.getElementById('play-button');
+const stopButton = document.getElementById('stop-button');
+const loopButton = document.getElementById('loop-button');
+const tempoSlider = document.getElementById('tempo-slider');
+const tempoDisplay = document.getElementById('tempo-display');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeDisplay = document.getElementById('volume-display');
+const clearSamplesBtn = document.getElementById('clear-samples-btn');
+const instrumentBtns = document.querySelectorAll('.instrument-btn');
+
+// Analysis Display
+const notesCount = document.getElementById('notes-count');
+const patternDuration = document.getElementById('pattern-duration');
+const patternType = document.getElementById('pattern-type');
+const patternComplexity = document.getElementById('pattern-complexity');
+const tempoValue = document.getElementById('tempo-value');
+
+// =============================================
+// 🎤 RECORDING SYSTEM
+// =============================================
+
+recordButton.addEventListener('click', async () => {
+    if (!isRecording) {
+        await startRecording();
+    } else {
+        stopRecording();
     }
-  } else {
-    stopRecording();
-    recordButton.textContent = "Enregistrer un son";
-    updateStatus("completed", "Analyse terminée");
-  }
 });
-
-// ==========================
-// 🎵 BOUTON LECTURE BEAT
-// ==========================
-
-playBeatButton.addEventListener("click", () => {
-  if (!isPlaying) {
-    playEnhancedBeat();
-  }
-});
-
-// ==========================
-// 🎙️ START RECORD
-// ==========================
 
 async function startRecording() {
-  // Vérification de la compatibilité mobile
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = fftSize;
-  analyser.smoothingTimeConstant = 0.8;
+    try {
+        // Initialize Audio Context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = FFT_SIZE;
+        analyser.smoothingTimeConstant = 0.3; // Plus réactif
+        
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = mainVolume;
+        masterGain.connect(audioContext.destination);
 
-  freqData = new Uint8Array(analyser.frequencyBinCount);
-  timeData = new Uint8Array(analyser.fftSize);
+        // Get Microphone
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            } 
+        });
+        
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
 
-  // Demande d'accès au microphone avec gestion d'erreur
-  const stream = await navigator.mediaDevices.getUserMedia({ 
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: false
-    } 
-  });
-  
-  microphone = audioContext.createMediaStreamSource(stream);
-  microphone.connect(analyser);
-
-  soundSequence = [];
-  startTime = audioContext.currentTime;
-  isRecording = true;
-
-  // Réinitialiser l'affichage
-  resetDisplay();
-
-  captureTimer = setInterval(captureFrame, captureInterval);
-  
-  // Démarrer la visualisation en temps réel
-  visualize();
+        // Start Recording
+        isRecording = true;
+        recordingStartTime = audioContext.currentTime;
+        recordingData = [];
+        
+        updateStatus('recording', 'Enregistrement...');
+        recordButton.classList.add('recording');
+        recordButton.querySelector('.button-text').textContent = 'Arrêter';
+        
+        // Start Analysis Loop
+        analyzeAudio();
+        updateTimer();
+        visualizeWaveform();
+        
+    } catch (error) {
+        console.error('Erreur microphone:', error);
+        alert('Impossible d\'accéder au microphone. Vérifiez les permissions.');
+    }
 }
-
-// ==========================
-// ⛔ STOP RECORD
-// ==========================
 
 function stopRecording() {
-  clearInterval(captureTimer);
-  isRecording = false;
-
-  // Arrêter le microphone
-  if (microphone && microphone.mediaStream) {
-    microphone.mediaStream.getTracks().forEach(track => track.stop());
-  }
-
-  console.log("🎼 Séquence enregistrée :", soundSequence);
-
-  // Analyser et afficher les résultats
-  analyzeSequence();
-
-  // Activer le bouton de lecture
-  playBeatButton.disabled = false;
-}
-
-// ==========================
-// ⏱️ CAPTURE FRAME
-// ==========================
-
-function captureFrame() {
-  analyser.getByteFrequencyData(freqData);
-  analyser.getByteTimeDomainData(timeData);
-
-  const soundEvent = analyzeFrame(freqData, timeData);
-  soundSequence.push(soundEvent);
-
-  // Mettre à jour l'affichage en temps réel
-  updateRealTimeDisplay(soundEvent);
-}
-
-// ==========================
-// 🧠 ANALYSE AUDIO
-// ==========================
-
-function analyzeFrame(freqArray, timeArray) {
-  // ---- Fréquence dominante
-  let maxVal = 0;
-  let maxIndex = 0;
-
-  for (let i = 0; i < freqArray.length; i++) {
-    if (freqArray[i] > maxVal) {
-      maxVal = freqArray[i];
-      maxIndex = i;
+    isRecording = false;
+    
+    // Stop Microphone
+    if (microphone && microphone.mediaStream) {
+        microphone.mediaStream.getTracks().forEach(track => track.stop());
     }
-  }
-
-  const dominantFreq = (maxIndex * audioContext.sampleRate) / analyser.fftSize;
-
-  // ---- Volume RMS
-  let sum = 0;
-  for (let i = 0; i < timeArray.length; i++) {
-    const v = (timeArray[i] - 128) / 128;
-    sum += v * v;
-  }
-
-  const rms = Math.sqrt(sum / timeArray.length);
-
-  // ---- Détection attaque
-  const threshold = 0.05;
-  const isHit = rms > threshold;
-
-  return {
-    time: +(audioContext.currentTime - startTime).toFixed(2),
-    dominantFreq: Math.round(dominantFreq),
-    energy: +rms.toFixed(3),
-    isHit: isHit
-  };
+    
+    // Process Recording
+    processRecording();
+    
+    // Update UI
+    updateStatus('inactive', 'Prêt');
+    recordButton.classList.remove('recording');
+    recordButton.querySelector('.button-text').textContent = 'Enregistrer';
 }
 
-// ==========================
-// 📊 ANALYSE DE LA SÉQUENCE
-// ==========================
+// =============================================
+// 🧠 ADVANCED AUDIO ANALYSIS
+// =============================================
 
-function analyzeSequence() {
-  if (!soundSequence.length) return;
-
-  // Calculs globaux
-  const duration = soundSequence[soundSequence.length - 1].time;
-  const hits = soundSequence.filter(e => e.isHit);
-  const avgFreq = hits.reduce((sum, e) => sum + e.dominantFreq, 0) / hits.length || 0;
-  const avgEnergy = hits.reduce((sum, e) => sum + e.energy, 0) / hits.length || 0;
-  
-  // Détection du tempo (BPM)
-  const intervals = [];
-  for (let i = 1; i < hits.length; i++) {
-    intervals.push(hits[i].time - hits[i - 1].time);
-  }
-  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length || 1;
-  const bpm = Math.round(60 / avgInterval);
-
-  // Déterminer le type de beat
-  let beatTypeText = "Ambiant";
-  if (bpm > 120) beatTypeText = "Rapide/Électronique";
-  else if (bpm > 80) beatTypeText = "Moyen/Pop";
-  else if (bpm > 60) beatTypeText = "Lent/Ballad";
-
-  // Signature rythmique
-  const signature = hits.length % 4 === 0 ? "4/4" : hits.length % 3 === 0 ? "3/4" : "Libre";
-
-  // Mise à jour de l'affichage
-  durationValue.textContent = `${duration.toFixed(1)} s`;
-  frequencyValue.textContent = `${Math.round(avgFreq)} Hz`;
-  intensityValue.textContent = `${(avgEnergy * 100).toFixed(0)} dB`;
-  tempoValue.textContent = `${bpm} BPM`;
-  beatType.textContent = beatTypeText;
-  timeSignature.textContent = signature;
-
-  // Afficher le pattern
-  displayPattern(hits);
+function analyzeAudio() {
+    if (!isRecording) return;
+    
+    const freqData = new Uint8Array(analyser.frequencyBinCount);
+    const timeData = new Uint8Array(analyser.fftSize);
+    
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
+    
+    // Calculate RMS Energy
+    let sum = 0;
+    for (let i = 0; i < timeData.length; i++) {
+        const normalized = (timeData[i] - 128) / 128;
+        sum += normalized * normalized;
+    }
+    const rms = Math.sqrt(sum / timeData.length);
+    
+    // Detect Beat (Onset Detection)
+    if (rms > ONSET_THRESHOLD) {
+        const currentTime = audioContext.currentTime - recordingStartTime;
+        
+        // Find Dominant Frequency
+        let maxAmp = 0;
+        let maxIndex = 0;
+        for (let i = 0; i < freqData.length; i++) {
+            if (freqData[i] > maxAmp) {
+                maxAmp = freqData[i];
+                maxIndex = i;
+            }
+        }
+        
+        const frequency = (maxIndex * audioContext.sampleRate) / analyser.fftSize;
+        
+        // Store Beat
+        recordingData.push({
+            time: currentTime,
+            frequency: frequency,
+            energy: rms,
+            velocity: Math.min(rms * 2, 1)
+        });
+        
+        // Visual Feedback
+        addBeatMarker(recordingData.length);
+    }
+    
+    requestAnimationFrame(analyzeAudio);
 }
 
-// ==========================
-// 🎨 AFFICHAGE DU PATTERN
-// ==========================
-
-function displayPattern(hits) {
-  beatPattern.innerHTML = "";
-  
-  if (hits.length === 0) {
-    beatPattern.innerHTML = '<span class="pattern-placeholder">Aucun hit détecté</span>';
-    return;
-  }
-
-  const patternContainer = document.createElement("div");
-  patternContainer.style.display = "flex";
-  patternContainer.style.gap = "5px";
-  patternContainer.style.flexWrap = "wrap";
-
-  hits.slice(0, 16).forEach((hit, index) => {
-    const dot = document.createElement("div");
-    dot.style.width = "12px";
-    dot.style.height = "12px";
-    dot.style.borderRadius = "50%";
-    dot.style.background = `radial-gradient(circle, #f4d03f, #d4af37)`;
-    dot.style.boxShadow = "0 0 8px rgba(212, 175, 55, 0.6)";
-    dot.style.opacity = Math.min(hit.energy * 2, 1);
-    patternContainer.appendChild(dot);
-  });
-
-  beatPattern.appendChild(patternContainer);
+function addBeatMarker(number) {
+    const marker = document.createElement('div');
+    marker.className = 'beat-marker';
+    marker.textContent = number;
+    beatGrid.appendChild(marker);
 }
 
-// ==========================
-// 🎬 VISUALISATION TEMPS RÉEL
-// ==========================
+// =============================================
+// 📊 RECORDING PROCESSING
+// =============================================
 
-function visualize() {
-  if (!isRecording) return;
-
-  analyser.getByteFrequencyData(freqData);
-  
-  // Calculer l'énergie moyenne pour l'animation
-  let sum = 0;
-  for (let i = 0; i < freqData.length; i++) {
-    sum += freqData[i];
-  }
-  const avgEnergy = sum / freqData.length / 255;
-
-  // Animer le cercle pulsant
-  const scale = 1 + avgEnergy * 0.3;
-  pulseIndicator.style.transform = `scale(${scale})`;
-
-  requestAnimationFrame(visualize);
+function processRecording() {
+    if (recordingData.length === 0) {
+        alert('Aucun son détecté. Essayez de faire un son plus fort !');
+        return;
+    }
+    
+    console.log('🎵 Beats détectés:', recordingData);
+    
+    // Quantize Beats (snap to grid)
+    const quantizedBeats = quantizeBeats(recordingData);
+    
+    // Analyze Pattern
+    const analysis = analyzePattern(quantizedBeats);
+    
+    // Create Sample
+    const sample = {
+        id: Date.now(),
+        instrument: currentInstrument,
+        beats: quantizedBeats,
+        tempo: analysis.tempo,
+        duration: analysis.duration,
+        complexity: analysis.complexity,
+        type: analysis.type
+    };
+    
+    samples.push(sample);
+    addSamplePad(sample);
+    updateAnalysisDisplay(analysis);
+    
+    // Enable playback
+    playButton.disabled = false;
+    stopButton.disabled = false;
+    
+    console.log('✅ Sample créé:', sample);
 }
 
-// ==========================
-// 🔄 MISE À JOUR TEMPS RÉEL
-// ==========================
-
-function updateRealTimeDisplay(event) {
-  frequencyValue.textContent = `${event.dominantFreq} Hz`;
-  intensityValue.textContent = `${(event.energy * 100).toFixed(0)} dB`;
-  durationValue.textContent = `${event.time.toFixed(1)} s`;
+function quantizeBeats(beats) {
+    if (beats.length < 2) return beats;
+    
+    // Calculate average interval
+    let totalInterval = 0;
+    for (let i = 1; i < beats.length; i++) {
+        totalInterval += beats[i].time - beats[i - 1].time;
+    }
+    const avgInterval = totalInterval / (beats.length - 1);
+    
+    // Determine grid size (eighth, quarter, etc)
+    const gridSize = avgInterval / 2; // Subdivision
+    
+    // Snap each beat to nearest grid point
+    return beats.map((beat, index) => {
+        const gridPosition = Math.round(beat.time / gridSize) * gridSize;
+        return {
+            ...beat,
+            time: gridPosition,
+            gridIndex: Math.round(gridPosition / gridSize)
+        };
+    });
 }
 
-// ==========================
-// 🎯 MISE À JOUR DU STATUT
-// ==========================
-
-function updateStatus(status, text) {
-  recordingStatus.setAttribute("data-status", status);
-  statusText.textContent = text;
+function analyzePattern(beats) {
+    const duration = beats[beats.length - 1].time;
+    const count = beats.length;
+    
+    // Calculate Tempo (BPM)
+    let intervals = [];
+    for (let i = 1; i < beats.length; i++) {
+        intervals.push(beats[i].time - beats[i - 1].time);
+    }
+    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length || 0.5;
+    const tempo = Math.round(60 / avgInterval);
+    
+    // Determine Type
+    let type = 'Simple';
+    if (count > 12) type = 'Complexe';
+    else if (count > 6) type = 'Moyen';
+    
+    // Determine Complexity
+    const variability = calculateVariability(intervals);
+    let complexity = 'Faible';
+    if (variability > 0.3) complexity = 'Élevée';
+    else if (variability > 0.15) complexity = 'Moyenne';
+    
+    return {
+        duration: duration.toFixed(1),
+        count: count,
+        tempo: Math.min(Math.max(tempo, 60), 200),
+        type: type,
+        complexity: complexity
+    };
 }
 
-// ==========================
-// 🔄 RÉINITIALISER L'AFFICHAGE
-// ==========================
-
-function resetDisplay() {
-  frequencyValue.textContent = "-- Hz";
-  intensityValue.textContent = "-- dB";
-  tempoValue.textContent = "-- BPM";
-  durationValue.textContent = "-- s";
-  beatType.textContent = "En attente d'analyse";
-  timeSignature.textContent = "--/--";
-  beatPattern.innerHTML = '<span class="pattern-placeholder">Aucun pattern généré</span>';
-  playBeatButton.disabled = true;
-  playBeatButton.textContent = "▶ Écouter le beat";
+function calculateVariability(values) {
+    if (values.length < 2) return 0;
+    const mean = values.reduce((a, b) => a + b) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    return Math.sqrt(variance) / mean;
 }
 
-// ==========================
-// ▶️ REJOUER LA SÉQUENCE
-// ==========================
+// =============================================
+// 🎹 INSTRUMENT ENGINES
+// =============================================
 
-function playSequence() {
-  if (!soundSequence.length) return;
+function playNote(beat, instrument, time) {
+    const frequency = beat.frequency || 440;
+    const velocity = beat.velocity || 0.5;
+    const duration = 0.3;
+    
+    switch(instrument) {
+        case 'synth':
+            playSynth(frequency, velocity, time, duration);
+            break;
+        case 'piano':
+            playPiano(frequency, velocity, time, duration);
+            break;
+        case 'guitar':
+            playGuitar(frequency, velocity, time, duration);
+            break;
+        case 'bass':
+            playBass(frequency, velocity, time, duration);
+            break;
+        case 'drums':
+            playDrum(frequency, velocity, time);
+            break;
+        case 'pad':
+            playPad(frequency, velocity, time, duration * 2);
+            break;
+    }
+}
 
-  updateStatus("playing", "Lecture en cours...");
-
-  const now = audioContext.currentTime;
-
-  soundSequence.forEach((event, index) => {
-    if (!event.isHit) return;
-
+function playSynth(freq, vel, time, dur) {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
-
-    osc.type = "sine";
-    osc.frequency.value = event.dominantFreq || 220;
-
-    gain.gain.value = Math.min(event.energy * 1.5, 0.5);
-
-    osc.connect(gain);
-    gain.connect(audioContext.destination);
-
-    const start = now + index * (captureInterval / 1000);
-    osc.start(start);
-    osc.stop(start + 0.4);
-  });
-
-  // Réinitialiser le statut après la lecture
-  const playbackDuration = soundSequence.length * captureInterval;
-  setTimeout(() => {
-    updateStatus("inactive", "Prêt à enregistrer");
-  }, playbackDuration);
+    const filter = audioContext.createBiquadFilter();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.value = freq;
+    
+    filter.type = 'lowpass';
+    filter.frequency.value = 2000;
+    filter.Q.value = 5;
+    
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(vel * 0.3, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    
+    osc.start(time);
+    osc.stop(time + dur);
 }
 
-// ==========================
-// 🎵 LECTURE BEAT AMÉLIORÉE
-// ==========================
+function playPiano(freq, vel, time, dur) {
+    // Simulate piano with multiple harmonics
+    for (let i = 1; i <= 3; i++) {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = freq * i;
+        
+        const amplitude = vel * 0.2 / i;
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(amplitude, time + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + dur * 1.5);
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        
+        osc.start(time);
+        osc.stop(time + dur * 1.5);
+    }
+}
 
-function playEnhancedBeat() {
-  if (!soundSequence.length || isPlaying) return;
+function playGuitar(freq, vel, time, dur) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    
+    filter.type = 'bandpass';
+    filter.frequency.value = 1000;
+    filter.Q.value = 1;
+    
+    // Pluck envelope
+    gain.gain.setValueAtTime(vel * 0.4, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    
+    osc.start(time);
+    osc.stop(time + dur);
+}
 
-  isPlaying = true;
-  playBeatButton.classList.add("playing");
-  playBeatButton.textContent = "🎵 Lecture en cours...";
-  updateStatus("playing", "Lecture du beat...");
+function playBass(freq, vel, time, dur) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.value = freq * 0.5; // Octave lower
+    
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(freq * 2, time);
+    filter.frequency.exponentialRampToValueAtTime(freq * 0.5, time + dur);
+    filter.Q.value = 3;
+    
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(vel * 0.5, time + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    
+    osc.start(time);
+    osc.stop(time + dur);
+}
 
-  const now = audioContext.currentTime;
-  const hits = soundSequence.filter(e => e.isHit);
-  
-  if (hits.length === 0) {
-    isPlaying = false;
-    playBeatButton.classList.remove("playing");
-    playBeatButton.textContent = "▶ Écouter le beat";
-    return;
-  }
-
-  // Calculer le tempo
-  const intervals = [];
-  for (let i = 1; i < hits.length; i++) {
-    intervals.push(hits[i].time - hits[i - 1].time);
-  }
-  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length || 0.5;
-  const beatDuration = avgInterval;
-
-  // Nombre de mesures à jouer (au moins 8 beats)
-  const numBeats = Math.max(8, hits.length);
-  
-  // Jouer chaque beat
-  for (let i = 0; i < numBeats; i++) {
-    const beatTime = now + i * beatDuration;
-    const hitIndex = i % hits.length;
-    const hit = hits[hitIndex];
-
-    // Déterminer le type de son selon la fréquence
-    if (hit.dominantFreq < 150) {
-      // Kick (basse fréquence)
-      createKick(beatTime, hit.energy);
-    } else if (hit.dominantFreq < 400) {
-      // Snare (fréquence moyenne)
-      createSnare(beatTime, hit.energy);
+function playDrum(freq, vel, time) {
+    if (freq < 150) {
+        // Kick
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(30, time + 0.1);
+        
+        gain.gain.setValueAtTime(vel * 0.8, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(time);
+        osc.stop(time + 0.3);
+        
+    } else if (freq < 400) {
+        // Snare
+        const osc = audioContext.createOscillator();
+        const noise = createNoiseBuffer(0.15);
+        const gain1 = audioContext.createGain();
+        const gain2 = audioContext.createGain();
+        
+        osc.frequency.value = 200;
+        gain1.gain.setValueAtTime(vel * 0.3, time);
+        gain1.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+        
+        noise.connect(gain2);
+        osc.connect(gain1);
+        gain1.connect(masterGain);
+        gain2.connect(masterGain);
+        
+        gain2.gain.setValueAtTime(vel * 0.2, time);
+        gain2.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+        
+        osc.start(time);
+        noise.start(time);
+        osc.stop(time + 0.2);
+        
     } else {
-      // HiHat (haute fréquence)
-      createHiHat(beatTime, hit.energy);
+        // HiHat
+        const noise = createNoiseBuffer(0.08);
+        const filter = audioContext.createBiquadFilter();
+        const gain = audioContext.createGain();
+        
+        filter.type = 'highpass';
+        filter.frequency.value = 7000;
+        
+        gain.gain.setValueAtTime(vel * 0.3, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+        
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        noise.start(time);
     }
+}
 
-    // Ajouter une mélodie basée sur la fréquence dominante
-    if (i % 2 === 0) {
-      createMelody(beatTime, hit.dominantFreq, hit.energy);
+function playPad(freq, vel, time, dur) {
+    // Rich pad sound with multiple oscillators
+    const oscs = [];
+    const detunes = [-7, 0, 7, 12]; // Chord
+    
+    detunes.forEach(detune => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.detune.value = detune * 100;
+        
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        filter.Q.value = 1;
+        
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(vel * 0.1, time + 0.3);
+        gain.gain.linearRampToValueAtTime(0.01, time + dur);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(masterGain);
+        
+        osc.start(time);
+        osc.stop(time + dur);
+    });
+}
+
+function createNoiseBuffer(duration) {
+    const bufferSize = audioContext.sampleRate * duration;
+    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
     }
-  }
+    
+    const noise = audioContext.createBufferSource();
+    noise.buffer = buffer;
+    return noise;
+}
 
-  // Réinitialiser après la lecture
-  const totalDuration = numBeats * beatDuration * 1000;
-  setTimeout(() => {
+// =============================================
+// 🎵 SAMPLE MANAGEMENT
+// =============================================
+
+function addSamplePad(sample) {
+    const pad = document.createElement('div');
+    pad.className = 'sample-pad';
+    pad.dataset.sampleId = sample.id;
+    
+    pad.innerHTML = `
+        <div class="sample-number">#${samples.length}</div>
+        <div class="sample-instrument">${getInstrumentIcon(sample.instrument)} ${sample.instrument}</div>
+        <button class="sample-delete" onclick="deleteSample(${sample.id})">×</button>
+    `;
+    
+    pad.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('sample-delete')) {
+            playSample(sample);
+        }
+    });
+    
+    samplePads.appendChild(pad);
+}
+
+function getInstrumentIcon(instrument) {
+    const icons = {
+        synth: '🎹',
+        piano: '🎹',
+        guitar: '🎸',
+        bass: '🎸',
+        drums: '🥁',
+        pad: '🌊'
+    };
+    return icons[instrument] || '🎵';
+}
+
+function playSample(sample) {
+    const pad = document.querySelector(`[data-sample-id="${sample.id}"]`);
+    if (pad) {
+        pad.classList.add('playing');
+        setTimeout(() => pad.classList.remove('playing'), 500);
+    }
+    
+    const now = audioContext.currentTime;
+    const beatInterval = 60 / sample.tempo;
+    
+    sample.beats.forEach((beat, index) => {
+        const playTime = now + index * beatInterval;
+        playNote(beat, sample.instrument, playTime);
+    });
+}
+
+function deleteSample(sampleId) {
+    samples = samples.filter(s => s.id !== sampleId);
+    const pad = document.querySelector(`[data-sample-id="${sampleId}"]`);
+    if (pad) pad.remove();
+    
+    if (samples.length === 0) {
+        playButton.disabled = true;
+        stopButton.disabled = true;
+    }
+}
+
+clearSamplesBtn.addEventListener('click', () => {
+    if (confirm('Effacer tous les samples ?')) {
+        samples = [];
+        samplePads.innerHTML = '';
+        playButton.disabled = true;
+        stopButton.disabled = true;
+    }
+});
+
+// =============================================
+// ▶️ PLAYBACK SYSTEM
+// =============================================
+
+playButton.addEventListener('click', () => {
+    if (!isPlaying) {
+        startPlayback();
+    }
+});
+
+stopButton.addEventListener('click', () => {
+    stopPlayback();
+});
+
+loopButton.addEventListener('click', () => {
+    loopEnabled = !loopEnabled;
+    loopButton.classList.toggle('active');
+});
+
+function startPlayback() {
+    if (samples.length === 0) return;
+    
+    isPlaying = true;
+    playButton.classList.add('playing');
+    updateStatus('playing', 'Lecture...');
+    
+    playAllSamples();
+}
+
+function playAllSamples() {
+    if (!isPlaying) return;
+    
+    const now = audioContext.currentTime;
+    const beatInterval = 60 / currentTempo;
+    
+    // Play all samples simultaneously
+    samples.forEach(sample => {
+        sample.beats.forEach((beat, index) => {
+            const playTime = now + index * beatInterval * (sample.tempo / currentTempo);
+            playNote(beat, sample.instrument, playTime);
+        });
+    });
+    
+    // Loop if enabled
+    if (loopEnabled) {
+        const longestSample = Math.max(...samples.map(s => s.beats.length));
+        const loopDuration = longestSample * beatInterval * 1000;
+        setTimeout(playAllSamples, loopDuration);
+    } else {
+        isPlaying = false;
+        playButton.classList.remove('playing');
+        updateStatus('inactive', 'Prêt');
+    }
+}
+
+function stopPlayback() {
     isPlaying = false;
-    playBeatButton.classList.remove("playing");
-    playBeatButton.textContent = "▶ Écouter le beat";
-    updateStatus("inactive", "Prêt à enregistrer");
-  }, totalDuration);
+    playButton.classList.remove('playing');
+    updateStatus('inactive', 'Prêt');
 }
 
-// ==========================
-// 🥁 CRÉATION DES SONS
-// ==========================
+// =============================================
+// 🎛️ CONTROLS
+// =============================================
 
-function createKick(time, energy) {
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(150, time);
-  osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
-  
-  gain.gain.setValueAtTime(Math.min(energy * 2, 0.8), time);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
-  
-  osc.connect(gain);
-  gain.connect(audioContext.destination);
-  
-  osc.start(time);
-  osc.stop(time + 0.3);
+tempoSlider.addEventListener('input', (e) => {
+    currentTempo = parseInt(e.target.value);
+    tempoDisplay.textContent = currentTempo;
+    tempoValue.textContent = `${currentTempo} BPM`;
+});
+
+volumeSlider.addEventListener('input', (e) => {
+    mainVolume = parseInt(e.target.value) / 100;
+    volumeDisplay.textContent = parseInt(e.target.value);
+    if (masterGain) masterGain.gain.value = mainVolume;
+});
+
+instrumentBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        instrumentBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentInstrument = btn.dataset.instrument;
+    });
+});
+
+// =============================================
+// 📊 UI UPDATES
+// =============================================
+
+function updateStatus(status, text) {
+    recordingStatus.dataset.status = status;
+    statusText.textContent = text;
 }
 
-function createSnare(time, energy) {
-  // Oscillateur pour le corps de la snare
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  
-  osc.type = "triangle";
-  osc.frequency.value = 200;
-  
-  gain.gain.setValueAtTime(Math.min(energy * 1.5, 0.5), time);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-  
-  osc.connect(gain);
-  gain.connect(audioContext.destination);
-  
-  osc.start(time);
-  osc.stop(time + 0.2);
-  
-  // Noise pour l'effet "claquement"
-  const bufferSize = audioContext.sampleRate * 0.1;
-  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-  const data = buffer.getChannelData(0);
-  
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-  
-  const noise = audioContext.createBufferSource();
-  const noiseGain = audioContext.createGain();
-  
-  noise.buffer = buffer;
-  noiseGain.gain.setValueAtTime(Math.min(energy * 0.8, 0.3), time);
-  noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
-  
-  noise.connect(noiseGain);
-  noiseGain.connect(audioContext.destination);
-  
-  noise.start(time);
+function updateTimer() {
+    if (!isRecording) return;
+    const elapsed = audioContext.currentTime - recordingStartTime;
+    recordingTimer.textContent = `${elapsed.toFixed(1)}s`;
+    requestAnimationFrame(updateTimer);
 }
 
-function createHiHat(time, energy) {
-  const bufferSize = audioContext.sampleRate * 0.05;
-  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-  const data = buffer.getChannelData(0);
-  
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
-  }
-  
-  const noise = audioContext.createBufferSource();
-  const gain = audioContext.createGain();
-  const filter = audioContext.createBiquadFilter();
-  
-  noise.buffer = buffer;
-  filter.type = "highpass";
-  filter.frequency.value = 7000;
-  
-  gain.gain.setValueAtTime(Math.min(energy * 1.2, 0.4), time);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
-  
-  noise.connect(filter);
-  filter.connect(gain);
-  gain.connect(audioContext.destination);
-  
-  noise.start(time);
+function updateAnalysisDisplay(analysis) {
+    notesCount.textContent = analysis.count;
+    patternDuration.textContent = `${analysis.duration}s`;
+    patternType.textContent = analysis.type;
+    patternComplexity.textContent = analysis.complexity;
+    tempoValue.textContent = `${analysis.tempo} BPM`;
 }
 
-function createMelody(time, frequency, energy) {
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  
-  osc.type = "sine";
-  osc.frequency.value = frequency;
-  
-  gain.gain.setValueAtTime(0, time);
-  gain.gain.linearRampToValueAtTime(Math.min(energy * 0.3, 0.2), time + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
-  
-  osc.connect(gain);
-  gain.connect(audioContext.destination);
-  
-  osc.start(time);
-  osc.stop(time + 0.3);
+function visualizeWaveform() {
+    if (!isRecording) return;
+    
+    const canvas = waveformCanvas;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+    
+    ctx.fillStyle = 'rgba(45, 55, 72, 0.3)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#d4af37';
+    ctx.beginPath();
+    
+    const sliceWidth = canvas.width / bufferLength;
+    let x = 0;
+    
+    for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+        
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+        
+        x += sliceWidth;
+    }
+    
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+    
+    requestAnimationFrame(visualizeWaveform);
 }
 
-// ==========================
-// 📱 GESTION MOBILE
-// ==========================
+// =============================================
+// 🎬 INITIALIZATION
+// =============================================
 
-// Empêcher le zoom sur double-tap (mobile)
-let lastTouchEnd = 0;
-document.addEventListener('touchend', (event) => {
-  const now = Date.now();
-  if (now - lastTouchEnd <= 300) {
-    event.preventDefault();
-  }
-  lastTouchEnd = now;
-}, false);
+beatGrid.innerHTML = '<p style="color: #718096; font-style: italic;">Les beats détectés apparaîtront ici</p>';
 
-// Optimisation des performances sur mobile
-if ('ontouchstart' in window) {
-  document.body.style.touchAction = 'manipulation';
-}
-
-// ==========================
-// 🎬 INITIALISATION
-// ==========================
-
-console.log("🎵 SoundRhythm initialisé");
+console.log('🎵 SoundRhythm Studio initialized');
