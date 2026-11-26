@@ -1,0 +1,15 @@
+Meloa — Crédits des sons
+
+Salamander Grand Piano V3, Alexander Holm.
+Enregistrements d’un Yamaha C5. Licence CC BY 3.0.
+https://creativecommons.org/licenses/by/3.0/
+https://github.com/sfzinstruments/SalamanderGrandPiano/tree/3382bf9496bba2486f5ab0de55a264d1dfc38404
+Adaptation Meloa : sélection de neuf hauteurs et deux nuances (couches 6 et 13),
+extraits de cinq secondes, fondu final et conversion en MP3.
+
+Virtuosity Drums, Versilian Studios et Karoryfer Samples.
+Batterie jouée par Austin McMahon. Licence CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+https://versilian-studios.com/virtuosity-drums/
+Extraits préparés par DarkLabs (DarkKit), convertis de M4A en WAV par Meloa.
+https://darklabs.dredarkroom.com/drumkit/

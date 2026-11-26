@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2d3748">
+    <title>Meloa</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Bar -->
+    <header class="top-bar">
+        <div class="logo">
+            <h1>🎵 Meloa</h1>
+        </div>
+        <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
+        <div class="project-controls">
+            <input type="text" id="project-name" class="project-name-input" value="Mon Projet Beat" placeholder="Nom du projet">
+            <button id="save-project-btn" class="icon-btn" title="Sauvegarder">💾</button>
+            <button id="new-project-btn" class="icon-btn" title="Nouveau projet">📝</button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-container">
+        
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <button class="sidebar-close-btn" id="sidebar-close-btn">✕</button>
+            <div class="section">
+                <h3>🎤 Enregistrement</h3>
+                <div class="record-zone">
+                    <button id="record-btn" class="record-btn">
+                        <span class="icon">⏺</span>
+                        <span class="text">REC</span>
+                    </button>
+                    <div class="rec-timer" id="rec-timer">0:00</div>
+                </div>
+                
+                <div class="instrument-select">
+                    <label>Instrument:</label>
+                    <select id="instrument-select" class="styled-select">
+                        <option value="synth">🎹 Synthé</option>
+                        <option value="piano">🎹 Piano</option>
+                        <option value="guitar">🎸 Guitare</option>
+                        <option value="bass">🎸 Basse</option>
+                        <option value="drums">🥁 Drums</option>
+                        <option value="pad">🌊 Pad</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🎛️ Master</h3>
+                <div class="master-controls">
+                    <div class="control-group">
+                        <label>Tempo: <span id="master-tempo-display">120</span> BPM</label>
+                        <input type="range" id="master-tempo" min="60" max="200" value="120" class="slider">
+                    </div>
+                    <div class="control-group">
+                        <label>Volume: <span id="master-volume-display">80</span>%</label>
+                        <input type="range" id="master-volume" min="0" max="100" value="80" class="slider">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>📊 Infos Projet</h3>
+                <div class="project-info">
+                    <div class="info-item">
+                        <span class="label">Tracks:</span>
+                        <span id="track-count" class="value">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Durée:</span>
+                        <span id="total-duration" class="value">0:00</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Area -->
+        <main class="workspace">
+            
+            <!-- Transport Bar -->
+            <div class="transport-bar">
+                <div class="transport-controls">
+                    <button id="play-btn" class="transport-btn play" title="Lecture">
+                        <span class="icon">▶</span>
+                    </button>
+                    <button id="stop-btn" class="transport-btn stop" title="Stop">
+                        <span class="icon">⏹</span>
+                    </button>
+                    <button id="loop-btn" class="transport-btn loop active" title="Boucle">
+                        <span class="icon">🔁</span>
+                    </button>
+                </div>
+                
+                <div class="playhead-info">
+                    <div class="time-display">
+                        <span id="current-time">0:00</span>
+                        <span class="separator">/</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                </div>
+
+                <div class="zoom-controls">
+                    <button id="zoom-out-btn" class="zoom-btn" title="Zoom arrière">−</button>
+                    <span id="zoom-level">100%</span>
+                    <button id="zoom-in-btn" class="zoom-btn" title="Zoom avant">+</button>
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="timeline-container">
+                <div class="timeline-ruler" id="timeline-ruler"></div>
+                <canvas id="playhead-canvas" class="playhead-canvas"></canvas>
+            </div>
+
+            <!-- Tracks Area -->
+            <div class="tracks-container" id="tracks-container">
+                <div class="empty-state">
+                    <div class="empty-icon">🎵</div>
+                    <h2>Aucune track</h2>
+                    <p>Cliquez sur REC pour enregistrer votre première track</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Track Editor Modal -->
+    <div id="track-editor-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Éditer Track <span id="editor-track-name"></span></h2>
+                <button class="close-modal" id="close-editor">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="editor-section">
+                    <h3>🎚️ Paramètres Audio</h3>
+                    <div class="editor-controls">
+                        <div class="editor-control">
+                            <label>Pitch: <span id="pitch-value">0</span> demi-tons</label>
+                            <input type="range" id="pitch-slider" min="-12" max="12" value="0" step="1">
+                        </div>
+                        <div class="editor-control">
+                            <label>Vitesse: <span id="speed-value">100</span>%</label>
+                            <input type="range" id="speed-slider" min="50" max="200" value="100" step="5">
+                        </div>
+                        <div class="editor-control">
+                            <label>Volume: <span id="track-volume-value">100</span>%</label>
+                            <input type="range" id="track-volume-slider" min="0" max="150" value="100" step="5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="editor-section">
+                    <h3>🎨 Effets</h3>
+                    <div class="editor-controls">
+                        <div class="editor-control">
+                            <label>
+                                <input type="checkbox" id="reverse-checkbox">
+                                Reverse (inverser)
+                            </label>
+                        </div>
+                        <div class="editor-control">
+                            <label>Pan: <span id="pan-value">0</span></label>
+                            <input type="range" id="pan-slider" min="-100" max="100" value="0" step="10">
+                            <div class="pan-labels">
+                                <span>L</span>
+                                <span>C</span>
+                                <span>R</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="editor-actions">
+                    <button id="apply-changes-btn" class="btn-primary">✓ Appliquer</button>
+                    <button id="reset-changes-btn" class="btn-secondary">↺ Réinitialiser</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

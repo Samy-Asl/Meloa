@@ -1,192 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#2d3748">
-    <title>Meloa</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17191e">
+  <meta name="description" content="Composez un motif sur quatre mesures avec un piano et une batterie échantillonnés.">
+  <title>Meloa — Studio</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Top Bar -->
-    <header class="top-bar">
-        <div class="logo">
-            <h1>🎵 Meloa</h1>
-        </div>
-        <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
-        <div class="project-controls">
-            <input type="text" id="project-name" class="project-name-input" value="Mon Projet Beat" placeholder="Nom du projet">
-            <button id="save-project-btn" class="icon-btn" title="Sauvegarder">💾</button>
-            <button id="new-project-btn" class="icon-btn" title="Nouveau projet">📝</button>
-        </div>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true" fill="none">
+        <path d="M6 17v-4m6 9V8m6 16V6m6 13v-8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span>Meloa</span>
+    </div>
+    <nav aria-label="Meloa">
+      <a href="capture/">Capture micro <span>(prototype)</span></a>
+    </nav>
+  </header>
+
+  <main class="studio">
+    <header class="studio-header">
+      <div>
+        <h1>Studio</h1>
+        <p>Compose une boucle sur quatre mesures.</p>
+      </div>
+      <div class="pattern-actions">
+        <button type="button" id="load-example" class="secondary">Charger l’exemple</button>
+        <button type="button" id="clear-pattern" class="secondary">Vider</button>
+      </div>
     </header>
 
-    <!-- Main Layout -->
-    <div class="main-container">
-        
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <button class="sidebar-close-btn" id="sidebar-close-btn">✕</button>
-            <div class="section">
-                <h3>🎤 Enregistrement</h3>
-                <div class="record-zone">
-                    <button id="record-btn" class="record-btn">
-                        <span class="icon">⏺</span>
-                        <span class="text">REC</span>
-                    </button>
-                    <div class="rec-timer" id="rec-timer">0:00</div>
-                </div>
-                
-                <div class="instrument-select">
-                    <label>Instrument:</label>
-                    <select id="instrument-select" class="styled-select">
-                        <option value="synth">🎹 Synthé</option>
-                        <option value="piano">🎹 Piano</option>
-                        <option value="guitar">🎸 Guitare</option>
-                        <option value="bass">🎸 Basse</option>
-                        <option value="drums">🥁 Drums</option>
-                        <option value="pad">🌊 Pad</option>
-                    </select>
-                </div>
-            </div>
+    <section class="transport" aria-label="Lecture">
+      <div class="transport-main">
+        <button type="button" id="play" class="play" aria-keyshortcuts="Space">
+          <svg viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+            <path id="play-icon" d="M5 2.8 15 9 5 15.2Z"/>
+          </svg>
+          <span id="play-label">Lecture</span>
+        </button>
+        <button type="button" id="stop" class="secondary">
+          <svg viewBox="0 0 18 18" fill="currentColor" aria-hidden="true">
+            <rect x="4" y="4" width="10" height="10" rx="1"/>
+          </svg>
+          Stop
+        </button>
+      </div>
+      <label class="tempo">
+        <input type="number" id="tempo" min="55" max="210" value="92" inputmode="numeric" aria-label="Tempo en BPM">
+        <span>BPM</span>
+      </label>
+      <div class="position">
+        <span>Mesure · Temps</span>
+        <output id="position" aria-live="off">01 · 01</output>
+      </div>
+      <p id="status" class="status" role="status"></p>
+    </section>
 
-            <div class="section">
-                <h3>🎛️ Master</h3>
-                <div class="master-controls">
-                    <div class="control-group">
-                        <label>Tempo: <span id="master-tempo-display">120</span> BPM</label>
-                        <input type="range" id="master-tempo" min="60" max="200" value="120" class="slider">
-                    </div>
-                    <div class="control-group">
-                        <label>Volume: <span id="master-volume-display">80</span>%</label>
-                        <input type="range" id="master-volume" min="0" max="100" value="80" class="slider">
-                    </div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>📊 Infos Projet</h3>
-                <div class="project-info">
-                    <div class="info-item">
-                        <span class="label">Tracks:</span>
-                        <span id="track-count" class="value">0</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="label">Durée:</span>
-                        <span id="total-duration" class="value">0:00</span>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Area -->
-        <main class="workspace">
-            
-            <!-- Transport Bar -->
-            <div class="transport-bar">
-                <div class="transport-controls">
-                    <button id="play-btn" class="transport-btn play" title="Lecture">
-                        <span class="icon">▶</span>
-                    </button>
-                    <button id="stop-btn" class="transport-btn stop" title="Stop">
-                        <span class="icon">⏹</span>
-                    </button>
-                    <button id="loop-btn" class="transport-btn loop active" title="Boucle">
-                        <span class="icon">🔁</span>
-                    </button>
-                </div>
-                
-                <div class="playhead-info">
-                    <div class="time-display">
-                        <span id="current-time">0:00</span>
-                        <span class="separator">/</span>
-                        <span id="total-time">0:00</span>
-                    </div>
-                </div>
-
-                <div class="zoom-controls">
-                    <button id="zoom-out-btn" class="zoom-btn" title="Zoom arrière">−</button>
-                    <span id="zoom-level">100%</span>
-                    <button id="zoom-in-btn" class="zoom-btn" title="Zoom avant">+</button>
-                </div>
-            </div>
-
-            <!-- Timeline -->
-            <div class="timeline-container">
-                <div class="timeline-ruler" id="timeline-ruler"></div>
-                <canvas id="playhead-canvas" class="playhead-canvas"></canvas>
-            </div>
-
-            <!-- Tracks Area -->
-            <div class="tracks-container" id="tracks-container">
-                <div class="empty-state">
-                    <div class="empty-icon">🎵</div>
-                    <h2>Aucune track</h2>
-                    <p>Cliquez sur REC pour enregistrer votre première track</p>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- Track Editor Modal -->
-    <div id="track-editor-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>✏️ Éditer Track <span id="editor-track-name"></span></h2>
-                <button class="close-modal" id="close-editor">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="editor-section">
-                    <h3>🎚️ Paramètres Audio</h3>
-                    <div class="editor-controls">
-                        <div class="editor-control">
-                            <label>Pitch: <span id="pitch-value">0</span> demi-tons</label>
-                            <input type="range" id="pitch-slider" min="-12" max="12" value="0" step="1">
-                        </div>
-                        <div class="editor-control">
-                            <label>Vitesse: <span id="speed-value">100</span>%</label>
-                            <input type="range" id="speed-slider" min="50" max="200" value="100" step="5">
-                        </div>
-                        <div class="editor-control">
-                            <label>Volume: <span id="track-volume-value">100</span>%</label>
-                            <input type="range" id="track-volume-slider" min="0" max="150" value="100" step="5">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="editor-section">
-                    <h3>🎨 Effets</h3>
-                    <div class="editor-controls">
-                        <div class="editor-control">
-                            <label>
-                                <input type="checkbox" id="reverse-checkbox">
-                                Reverse (inverser)
-                            </label>
-                        </div>
-                        <div class="editor-control">
-                            <label>Pan: <span id="pan-value">0</span></label>
-                            <input type="range" id="pan-slider" min="-100" max="100" value="0" step="10">
-                            <div class="pan-labels">
-                                <span>L</span>
-                                <span>C</span>
-                                <span>R</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="editor-actions">
-                    <button id="apply-changes-btn" class="btn-primary">✓ Appliquer</button>
-                    <button id="reset-changes-btn" class="btn-secondary">↺ Réinitialiser</button>
-                </div>
-            </div>
+    <section class="editor" aria-label="Éditeur de séquence">
+      <header class="editor-toolbar">
+        <div class="tabs" role="tablist" aria-label="Instrument">
+          <button role="tab" id="piano-tab" type="button" aria-selected="true" aria-controls="instrument-panel" data-mode="piano">Piano</button>
+          <button role="tab" id="drums-tab" type="button" aria-selected="false" aria-controls="instrument-panel" tabindex="-1" data-mode="drums">Batterie</button>
         </div>
-    </div>
+        <div id="measure-nav" class="measure-nav" aria-label="Aller à une mesure"></div>
+      </header>
 
-    <script src="script.js"></script>
+      <div id="instrument-panel" role="tabpanel" aria-labelledby="piano-tab">
+        <div class="grid-scroll" id="grid-scroll">
+          <div class="grid" id="grid" data-mode="piano"></div>
+        </div>
+        <div class="editor-footer">
+          <p id="edit-help">Clique sur une case pour ajouter une note ou sélectionne une note pour la modifier.</p>
+          <form id="note-settings" class="note-settings" hidden>
+            <label>Départ <input aria-label="Pas de départ" type="number" id="note-step" min="1" max="64" inputmode="numeric"></label>
+            <label>Durée <input aria-label="Durée en pas" type="number" id="note-length" min="1" max="64" inputmode="numeric"></label>
+            <label id="pitch-setting">Note <select id="note-pitch" aria-label="Hauteur de la note"></select></label>
+            <label>Force <input aria-label="Force de frappe" type="range" id="note-velocity" min="20" max="100"></label>
+            <button type="button" id="delete-note" class="secondary">Supprimer</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="keyboard-panel" id="keyboard-panel" aria-label="Clavier de piano">
+      <div class="keyboard-heading">
+        <h2>Clavier</h2>
+        <p>Joue avec la souris, au toucher ou avec les touches indiquées.</p>
+      </div>
+      <div id="keyboard" class="keyboard"></div>
+    </section>
+    <footer class="credits"><a href="assets/credits.txt">Crédits des sons</a></footer>
+  </main>
+
+  <script type="module" src="studio.js"></script>
 </body>
 </html>
