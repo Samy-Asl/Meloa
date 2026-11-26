@@ -222,3 +222,23 @@ button.grid-label:hover { color: var(--accent); }
   .keyboard { min-height: 73px; }
   .key { font-size: .75rem; }
 }
+.capture-tools,.take-bar {display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:12px 0}
+.capture-tools select {font:inherit;background:var(--raised);color:var(--text);padding:6px;border-radius:6px}
+#listen-panel h2 {font-size:1.1rem;margin:0}
+#listen-help {font-size:.9rem;color:var(--muted)}
+.take-bar:not(:has(#take-status:empty)) {border-left:3px solid var(--drums);padding:8px 12px}
+.record[aria-pressed="true"] {color:#ffb5a9;border-color:currentColor}
+#original {max-width:100%}
+.note-block {pointer-events:auto;touch-action:none;position:relative;cursor:grab}
+.note-block.is-selected {z-index:2}
+.note-block .resize {position:absolute;right:0;top:0;bottom:0;width:min(9px,33%);border-right:3px solid #6b4739;cursor:ew-resize}
+.note-block.dragging {outline:2px solid white;z-index:3}
+.grid-scroll {scroll-padding-top:40px;scroll-padding-left:var(--label-width)}
+.keyboard {position:relative;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px;height:115px}
+.key {grid-row:1;user-select:none;touch-action:none}
+.key.is-black {position:absolute;top:0;width:8%;height:65%;min-height:0;z-index:1;transform:translateX(-50%);font-size:.8rem}
+.key.is-black:nth-child(2) {left:12.5%}
+.key.is-black:nth-child(4) {left:25%}
+.key.is-black:nth-child(7) {left:50%}
+.key.is-black:nth-child(9) {left:62.5%}
+.key.is-black:nth-child(11) {left:75%}

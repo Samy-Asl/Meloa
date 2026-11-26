@@ -136,6 +136,16 @@ export class StudioAudio {
     return this.playNote(note, this.context.currentTime);
   }
 
+  release(source) {
+    const voice = this.voices.get(source);
+    if (!voice) return;
+    const now = this.context.currentTime;
+    voice.gain.gain.cancelScheduledValues(now);
+    voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+    voice.gain.gain.linearRampToValueAtTime(0, now + 0.07);
+    source.stop(now + 0.075);
+  }
+
   playNote(note, time, step = null) {
     const { pitch, velocity } = note;
     const layer = velocity < 0.68 ? 'soft' : 'hard';

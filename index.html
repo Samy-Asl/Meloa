@@ -17,7 +17,7 @@
       <span>Meloa</span>
     </div>
     <nav aria-label="Meloa">
-      <a href="capture/">Capture micro <span>(prototype)</span></a>
+      <a href="#listen-panel">Écoute micro</a>
     </nav>
   </header>
 
@@ -73,12 +73,13 @@
           <div class="grid" id="grid" data-mode="piano"></div>
         </div>
         <div class="editor-footer">
-          <p id="edit-help">Clique sur une case pour ajouter une note ou sélectionne une note pour la modifier.</p>
+          <p id="edit-help">Clique pour écrire, glisse une note pour la déplacer ou tire son bord droit pour l’allonger.</p>
           <form id="note-settings" class="note-settings" hidden>
             <label>Départ <input aria-label="Pas de départ" type="number" id="note-step" min="1" max="64" inputmode="numeric"></label>
             <label>Durée <input aria-label="Durée en pas" type="number" id="note-length" min="1" max="64" inputmode="numeric"></label>
             <label id="pitch-setting">Note <select id="note-pitch" aria-label="Hauteur de la note"></select></label>
             <label>Force <input aria-label="Force de frappe" type="range" id="note-velocity" min="20" max="100"></label>
+            <button type="button" id="duplicate" class="secondary">Dupliquer</button>
             <button type="button" id="delete-note" class="secondary">Supprimer</button>
           </form>
         </div>
@@ -90,9 +91,25 @@
         <h2>Clavier</h2>
         <p>Joue avec la souris, au toucher ou avec les touches indiquées.</p>
       </div>
+      <div class="capture-tools">
+        <button class="secondary" id="oct-down">− Octave (W)</button><output id="octave"></output><button class="secondary" id="oct-up">+ Octave (X)</button>
+        <button class="secondary record" id="key-record">Enregistrer le clavier</button>
+      </div>
       <div id="keyboard" class="keyboard"></div>
     </section>
-    <footer class="credits"><a href="assets/credits.txt">Crédits des sons</a></footer>
+    <section class="keyboard-panel" id="listen-panel">
+      <h2>Écoute micro</h2>
+      <div class="capture-tools">
+        <label>Détecter <select id="listen-mode"><option value="both">Rythme et son</option><option value="rhythm">Rythme seul</option><option value="pitch">Son seul</option></select></label>
+        <label><input type="checkbox" checked id="enhance"> Améliorer la détection</label>
+        <button class="secondary record" id="mic-record">Enregistrer au micro</button>
+      </div>
+      <p id="listen-help"></p><audio controls id="original" hidden></audio>
+    </section>
+    <div class="take-bar" id="take-bar" aria-live="polite"><span id="take-status"></span>
+      <button class="play" id="transfer" hidden>Ajouter à la grille</button>
+    </div>
+    <footer class="credits"><a href="capture/">Ancien prototype</a> · <a href="assets/credits.txt">Crédits des sons</a></footer>
   </main>
 
   <script type="module" src="studio.js"></script>
