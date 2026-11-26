@@ -1,3 +1,4 @@
+import { decodeProject, download, encodeProject, fitsArrangement, readSaved, saveLocal } from './project.js';
 import { transcribe } from './listen.js';
 import { DRUMS, STEP_COUNT, STEPS_PER_MEASURE, StudioAudio } from './audio.js';
 
@@ -16,14 +17,25 @@ const instruments = {
 const controls = {
   step: $('note-step'), length: $('note-length'), pitch: $('note-pitch'), velocity: $('note-velocity'),
 };
-const help = {
-  piano: 'Clique pour écrire, glisse une note pour la déplacer ou tire son bord droit pour l’allonger.',
-  drums: 'Clique sur une case pour ajouter une frappe ou sur une frappe pour la modifier.',
+const tips = {
+  draw: 'Clique pour écrire. Glisse une note pour la déplacer ou tire son bord droit pour changer sa durée.',
+  select: 'Trace un cadre autour des notes ou touche-les une à une. Glisse ensuite la sélection.',
+  erase: 'Touche une note pour l’effacer. Annuler permet de la retrouver.',
+  pan: 'Fais glisser la grille pour explorer les quatre mesures et les octaves.',
 };
-
-let notes = example();
+let tool = 'draw';
+let saved;
+try { saved = readSaved(); } catch { $('save-state').textContent = 'Sauvegarde locale illisible'; }
+let notes = saved?.notes ?? example();
 let mode = 'piano';
 let selected = null;
+let selection = new Set();
+let blocks = new Map();
+let drag = null;
+let dragFrame = 0;
+let currentSnapshot = encodeProject(notes, saved?.bpm ?? 92);
+const past = [];
+const future = [];
 let rows = new Map();
 let lastCell = null;
 let animation = null;
@@ -31,7 +43,7 @@ let playRequest = 0;
 let auditionSession = 0;
 let loadingAudio = null;
 
-const audio = new StudioAudio(step => notes.filter(note => note.step === step), 92);
+const audio = new StudioAudio(step => notes.filter(note => note.step === step), saved?.bpm ?? 92);
 
 function pitchName(pitch) {
   return `${pitchClasses[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
@@ -85,12 +97,21 @@ function buildGrid() {
   const measures = document.createElement('div');
   measures.className = 'measures';
   for (let bar = 1; bar <= STEP_COUNT / STEPS_PER_MEASURE; bar += 1) {
-    const label = document.createElement('span');
-    label.textContent = `Mesure ${bar}`;
-    measures.append(label);
+    const measure = document.createElement('div');
+    measure.className = 'ruler-measure';
+    for (let beat = 0; beat < 4; beat++) {
+      const seek = button(beat ? String(beat + 1) : 'M' + bar, 'ruler-beat');
+      seek.dataset.seek = (bar - 1) * STEPS_PER_MEASURE + beat * 4;
+      const description = 'Placer la lecture à la mesure ' + bar + ', temps ' + (beat + 1);
+      seek.setAttribute('aria-label', description);
+      seek.title = description;
+      measure.append(seek);
+    }
+    measures.append(measure);
   }
   header.append(title, measures);
 
+  blocks = new Map();
   rows = new Map();
   const content = document.createDocumentFragment();
   content.append(header);
@@ -114,7 +135,7 @@ function buildGrid() {
       steps.append(cell);
     }
     row.append(name, steps);
-    rows.set(pitch, { steps, cells });
+    rows.set(pitch, { steps, cells, covered: new Set() });
     content.append(row);
   }
   const playhead = document.createElement('div');
@@ -131,45 +152,117 @@ function buildGrid() {
 }
 
 function renderNotes() {
-  for (const [pitch, { steps, cells }] of rows) {
-    steps.querySelectorAll('.note-block').forEach(block => block.remove());
-    const covered = new Set();
-    for (const note of notes) {
-      if (note.pitch !== pitch) continue;
-      const block = document.createElement('span');
+  const present = new Set();
+  const occupied = new Map();
+  for (const note of notes) {
+    const row = rows.get(note.pitch);
+    if (!row) continue;
+    present.add(note);
+    let block = blocks.get(note);
+    if (!block) {
+      block = document.createElement('span');
       block.className = 'note-block';
-      block.dataset.start = note.step;
-      block.dataset.voice = note.pitch;
+      block.setAttribute('aria-hidden', 'true');
+      const name = document.createElement('span');
+      name.className = 'block-name';
+      block.append(name);
       if (mode === 'piano') {
         const grip = document.createElement('span');
         grip.className = 'resize';
         block.append(grip);
       }
-      block.classList.toggle('is-selected', note === selected);
-      block.style.gridColumn = `${note.step + 1} / span ${note.length}`;
-      block.style.opacity = 0.48 + note.velocity * 0.52;
-      block.setAttribute('aria-hidden', 'true');
-      steps.append(block);
-      for (let step = note.step; step < note.step + note.length; step += 1) covered.add(step);
+      blocks.set(note, block);
     }
-    cells.forEach((cell, step) => cell.setAttribute('aria-pressed', covered.has(step)));
+    if (block.parentElement !== row.steps) row.steps.append(block);
+    block.dataset.start = note.step;
+    block.dataset.voice = note.pitch;
+    block.firstElementChild.textContent = mode === 'piano' && note.length >= 3 ? pitchName(note.pitch) : '';
+    block.classList.toggle('is-selected', selection.has(note));
+    block.style.gridColumn = (note.step + 1) + ' / span ' + note.length;
+    block.style.opacity = 0.58 + note.velocity * 0.42;
+    if (!occupied.has(row)) occupied.set(row, new Set());
+    for (let i = note.step; i < note.step + note.length; i++) occupied.get(row).add(i);
   }
+  for (const [note, block] of blocks) {
+    if (present.has(note)) continue;
+    block.remove();
+    blocks.delete(note);
+  }
+  for (const row of rows.values()) {
+    const next = occupied.get(row) ?? new Set();
+    for (const i of row.covered) if (!next.has(i)) row.cells[i].removeAttribute('aria-pressed');
+    for (const i of next) if (!row.covered.has(i)) row.cells[i].setAttribute('aria-pressed', 'true');
+    row.covered = next;
+  }
+  updateOverview();
 }
 
 function selectNote(note, message) {
-  selected = note;
-  noteSettings.hidden = !note;
-  $('edit-help').textContent = message || (note
-    ? `${instruments[mode].find(item => item.pitch === note.pitch).label} · ${stepLabel(note.step)}`
-    : help[mode]);
-  if (note) {
-    controls.step.value = note.step + 1;
-    controls.length.value = note.length;
-    controls.length.max = maxLength(note.pitch, note.step, note);
-    controls.pitch.value = note.pitch;
-    controls.velocity.value = Math.round(note.velocity * 100);
+  selection = new Set(note ? [note] : []);
+  showSelection(note, message);
+}
+
+function showSelection(primary, message) {
+  selected = selection.has(primary) ? primary : selection.values().next().value ?? null;
+  const multiple = selection.size > 1;
+  noteSettings.hidden = !selected;
+  controls.step.parentElement.hidden = multiple;
+  controls.length.parentElement.hidden = multiple || mode === 'drums';
+  controls.pitch.parentElement.hidden = multiple || mode === 'drums';
+  $('edit-help').textContent = message || (multiple ? selection.size + ' notes sélectionnées' : selected
+    ? instruments[mode].find(item => item.pitch === selected.pitch).label + ' · ' + stepLabel(selected.step)
+    : tips[tool]);
+  if (selected) {
+    controls.step.value = selected.step + 1;
+    controls.length.value = selected.length;
+    controls.length.max = maxLength(selected.pitch, selected.step, selected);
+    controls.pitch.value = selected.pitch;
+    controls.velocity.value = Math.round(selected.velocity * 100);
   }
   renderNotes();
+}
+
+function recordChange() {
+  const next = encodeProject(notes, audio.bpm);
+  if (next === currentSnapshot) return;
+  past.push(currentSnapshot);
+  if (past.length > 80) past.shift();
+  future.length = 0;
+  currentSnapshot = next;
+  persist();
+}
+
+function persist() {
+  try {
+    saveLocal(currentSnapshot);
+    $('save-state').textContent = 'Enregistré sur cet appareil';
+  } catch { $('save-state').textContent = 'Stockage indisponible · télécharge le projet'; }
+  syncHistory();
+}
+
+function syncHistory() {
+  $('undo').disabled = !past.length || !!recording;
+  $('redo').disabled = !future.length || !!recording;
+  $('export-wav').disabled = !notes.length || exporting;
+}
+
+function restore(project) {
+  stop();
+  notes = project.notes;
+  audio.setTempo(project.bpm);
+  $('tempo').value = project.bpm;
+  selectNote(null);
+}
+
+function historyStep(forward) {
+  if (recording || drag) return;
+  const source = forward ? future : past;
+  if (!source.length) return;
+  (forward ? past : future).push(currentSnapshot);
+  currentSnapshot = source.pop();
+  restore(decodeProject(currentSnapshot));
+  persist();
+  $('edit-help').textContent = forward ? 'Modification rétablie.' : 'Modification annulée.';
 }
 
 function maxLength(pitch, step, excluded) {
@@ -187,46 +280,57 @@ function readPitch(value) {
 }
 
 function editCell(cell) {
-  const step = Number(cell.dataset.step);
+  const point = Number(cell.dataset.step);
   const pitch = readPitch(cell.dataset.pitch);
-  const existing = notes.find(note => note.pitch === pitch && note.step <= step && step < note.step + note.length);
+  const existing = notes.find(note => note.pitch === pitch && note.step <= point && point < note.step + note.length);
+  if (tool === 'pan') return;
+  if (tool === 'erase') { if (existing) { selectNote(existing); deleteSelected(); } return; }
+  if (tool === 'select') { if (existing) toggleMember(existing); else selectNote(null); return; }
   if (existing) {
     selectNote(existing);
     return;
   }
-  const note = { pitch, step, length: Math.min(mode === 'piano' ? 2 : 1, maxLength(pitch, step)), velocity: 0.74 };
+  const snap = Number($('snap').value);
+  const step = Math.floor(point / snap) * snap;
+  if (!maxLength(pitch, step)) { showSelection(selected, 'La position alignée est occupée.'); return; }
+  const note = { pitch, step, length: Math.min(mode === 'piano' ? Math.max(2, snap) : 1, maxLength(pitch, step)), velocity: 0.74 };
   notes.push(note);
   audio.refreshStep(step);
   selectNote(note);
+  recordChange();
   audition(note);
 }
 
 function updateSelected(field) {
   if (!selected) return;
-  const step = controls.step.valueAsNumber - 1;
-  const pitch = mode === 'drums' ? selected.pitch : Number(controls.pitch.value);
-  const available = maxLength(pitch, step, selected);
-  if (!Number.isInteger(step) || step < 0 || step >= STEP_COUNT || !available) {
-    selectNote(selected, 'Choisis un départ libre dans les quatre mesures.');
+  if (field === 'velocity') {
+    for (const note of selection) note.velocity = controls.velocity.valueAsNumber / 100;
+    refreshSteps(selection);
+    recordChange();
+    showSelection(selected);
+    audition(selected);
     return;
   }
-  const length = mode === 'drums' ? 1 : Math.min(Math.max(1, Math.round(controls.length.valueAsNumber || 1)), available);
-  const previousStep = selected.step;
-  const pitchChanged = selected.pitch !== pitch;
-  Object.assign(selected, { pitch, step, length, velocity: controls.velocity.valueAsNumber / 100 });
-  audio.refreshStep(previousStep);
-  if (previousStep !== step) audio.refreshStep(step);
-  selectNote(selected);
-  if (field === 'velocity' || pitchChanged) audition(selected);
+  if (selection.size !== 1) return;
+  const candidate = { ...selected };
+  if (field === 'step') candidate.step = controls.step.valueAsNumber - 1;
+  if (field === 'length') candidate.length = controls.length.valueAsNumber;
+  if (field === 'pitch') candidate.pitch = Number(controls.pitch.value);
+  if (!applyPositions([candidate])) return;
+  if (field === 'pitch') audition(selected);
+}
+
+function refreshSteps(items) {
+  new Set(Array.from(items, note => note.step)).forEach(step => audio.refreshStep(step));
 }
 
 function deleteSelected() {
-  if (!selected) return;
-  const step = selected.step;
-  notes = notes.filter(note => note !== selected);
-  audio.refreshStep(step);
+  if (!selection.size) return;
+  const removed = selection;
+  notes = notes.filter(note => !removed.has(note));
+  refreshSteps(removed);
   selectNote(null);
-  lastCell.focus({ preventScroll: true });
+  recordChange();
 }
 
 async function prepareAudio() {
@@ -260,6 +364,7 @@ async function togglePlay() {
     updateTransport();
     return;
   }
+  stopTakePreview();
   const request = ++playRequest;
   $('play').disabled = true;
   try {
@@ -275,6 +380,7 @@ async function togglePlay() {
 }
 
 function stop() {
+  stopTakePreview();
   playRequest += 1;
   auditionSession += 1;
   audio.stop();
@@ -289,6 +395,10 @@ function showPosition() {
   const display = `0${measure} · 0${beat}`;
   if ($('position').value !== display) $('position').value = display;
   grid.classList.toggle('is-running', audio.playing || position > 0);
+  if (grid.dataset.playingBar !== String(measure)) {
+    grid.dataset.playingBar = String(measure);
+    document.querySelectorAll('.measure-jump').forEach((item, index) => item.classList.toggle('current-bar', index === measure - 1));
+  }
   grid.style.setProperty('--playhead', position / STEP_COUNT);
 }
 
@@ -308,6 +418,8 @@ function updateTransport() {
 
 function switchMode(next, focus = false) {
   if (next === mode) return;
+  cancelGesture();
+  selection.clear();
   mode = next;
   selected = null;
   for (const tab of tabs) {
@@ -317,6 +429,10 @@ function switchMode(next, focus = false) {
     if (active && focus) tab.focus();
   }
   $('instrument-panel').setAttribute('aria-labelledby', mode === 'piano' ? 'piano-tab' : 'drums-tab');
+  if (mode === 'drums' && recording === 'keys') finishKeys();
+  if (mode === 'drums' && $('keyboard-panel').contains($('take-bar'))) {
+    document.querySelector('.capture-panels').after($('take-bar'));
+  }
   $('keyboard-panel').hidden = mode === 'drums';
   $('pitch-setting').hidden = mode === 'drums';
   controls.length.parentElement.hidden = mode === 'drums';
@@ -330,12 +446,20 @@ function refill(next, prompt) {
   notes = next;
   oldSteps.forEach(step => audio.refreshStep(step));
   selectNote(null);
+  recordChange();
 }
 
 grid.addEventListener('click', event => {
+  const ruler = event.target.closest('[data-seek]');
+  if (ruler) {
+    audio.seek(Number(ruler.dataset.seek));
+    showPosition();
+    return;
+  }
   if (event.target.closest('.note-block')) return;
   const cell = event.target.closest('[data-step]');
   if (cell) {
+    if (event.detail && suppressClick) return;
     lastCell.tabIndex = -1;
     lastCell = cell;
     cell.tabIndex = 0;
@@ -348,7 +472,7 @@ grid.addEventListener('click', event => {
 
 grid.addEventListener('keydown', event => {
   const cell = event.target.closest('[data-step]');
-  if (!cell) return;
+  if (!cell || (event.shiftKey && selection.size)) return;
   const pitch = readPitch(cell.dataset.pitch);
   const step = Number(cell.dataset.step);
   const index = instruments[mode].findIndex(item => item.pitch === pitch);
@@ -361,7 +485,12 @@ grid.addEventListener('keydown', event => {
     case 'Delete':
     case 'Backspace':
       event.preventDefault();
+      event.stopPropagation();
       if (selected) deleteSelected();
+      else {
+        const atCursor = noteAt(pitch, step);
+        if (atCursor) { selectNote(atCursor); deleteSelected(); }
+      }
       return;
     default: return;
   }
@@ -370,6 +499,7 @@ grid.addEventListener('keydown', event => {
   lastCell.tabIndex = -1;
   lastCell = next;
   next.tabIndex = 0;
+  if (selection.size) selectNote(null);
   next.focus();
 });
 
@@ -384,12 +514,18 @@ tabs.forEach(tab => {
 });
 
 let octave = 4;
+let exporting = false;
+let suppressClick = false;
 let recording = '';
 let take = [];
 let takeMode = 'piano';
 let keyStart = null;
+let takePreview = null;
+let takePreviewTimer = 0;
+let previewRequest = 0;
 let keyTimeout;
 let micSession;
+let analysisWorker = null;
 let originalPCM;
 let originalURL;
 let takeBpm = audio.bpm;
@@ -404,11 +540,45 @@ function refreshTakeControls() {
   $('key-record').disabled = recording === 'mic';
   $('key-record').setAttribute('aria-pressed', recording === 'keys');
   $('mic-record').setAttribute('aria-pressed', recording === 'mic');
-  $('transfer').hidden = !!recording || !take.length;
+  $('hear-take').hidden = $('transfer').hidden = !!recording || !take.length;
   $('tempo').disabled = !!recording;
+  $('open-project').disabled = $('clear-pattern').disabled = $('load-example').disabled = !!recording;
+  syncHistory();
 }
 
+function stopTakePreview() {
+  previewRequest++;
+  clearTimeout(takePreviewTimer);
+  takePreview?.cancelVoices();
+  takePreview = null;
+  $('hear-take').setAttribute('aria-pressed', 'false');
+  $('hear-take').textContent = 'Écouter la prise';
+}
+
+$('hear-take').onclick = async () => {
+  if ($('hear-take').getAttribute('aria-pressed') === 'true') return stopTakePreview();
+  if (!take.length || recording) return;
+  stop();
+  const request = ++previewRequest;
+  $('hear-take').setAttribute('aria-pressed', 'true');
+  $('hear-take').textContent = 'Arrêter l’écoute';
+  try {
+    await prepareAudio();
+    if (request !== previewRequest) return;
+    takePreview = new StudioAudio(null, audio.bpm);
+    takePreview.context = audio.context;
+    takePreview.master = audio.master;
+    takePreview.buffers = audio.buffers;
+    const first = audio.context.currentTime + 0.04;
+    for (const note of take) takePreview.playNote(note, first + note.step * takePreview.stepDuration);
+    const end = Math.max(...take.map(note => note.step + note.length)) * takePreview.stepDuration;
+    takePreviewTimer = setTimeout(stopTakePreview, (end + 0.6) * 1000);
+  } catch { stopTakePreview(); }
+};
+
 function clearOriginal() {
+  analysisWorker?.terminate();
+  analysisWorker = null;
   originalPCM = null;
   $('original').pause();
   $('original').removeAttribute('src');
@@ -419,12 +589,13 @@ function clearOriginal() {
 }
 
 function arm(kind) {
-  if (recording || (take.length && !confirm('Remplacer la prise en attente ?'))) return false;
+  if (recording || ((take.length || analysisWorker) && !confirm('Remplacer la prise en attente ?'))) return false;
+  stopTakePreview();
   take = [];
   clearOriginal();
   takeBpm = audio.bpm;
   recording = kind;
-  $(kind === 'keys' ? 'keyboard-panel' : 'listen-panel').after($('take-bar'));
+  $(kind === 'keys' ? 'keyboard-panel' : 'listen-panel').append($('take-bar'));
   refreshTakeControls();
   return true;
 }
@@ -541,17 +712,18 @@ $('key-record').onclick = async () => {
   } catch { finishKeys(); }
 };
 
-function makeWav(data, rate) {
+function makeWav(data, rate, channels = 1) {
   const view = new DataView(new ArrayBuffer(44 + data.length * 2));
   const tag = (index, text) => [...text].forEach((char, i) => view.setUint8(index + i, char.charCodeAt(0)));
   tag(0, 'RIFF'); tag(8, 'WAVE'); tag(12, 'fmt '); tag(36, 'data');
-  for (const [index, value] of [[4, 36 + data.length * 2], [16, 16], [24, rate], [28, rate * 2], [40, data.length * 2]]) view.setUint32(index, value, true);
-  for (const [index, value] of [[20, 1], [22, 1], [32, 2], [34, 16]]) view.setUint16(index, value, true);
+  for (const [index, value] of [[4, 36 + data.length * 2], [16, 16], [24, rate], [28, rate * 2 * channels], [40, data.length * 2]]) view.setUint32(index, value, true);
+  for (const [index, value] of [[20, 1], [22, channels], [32, channels * 2], [34, 16]]) view.setUint16(index, value, true);
   data.forEach((value, i) => view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, value)) * 32767, true));
   return URL.createObjectURL(new Blob([view.buffer], { type: 'audio/wav' }));
 }
 
 function analyseTake() {
+  stopTakePreview();
   const method = $('listen-mode').value;
   $('listen-help').textContent = {
     both: 'Fredonne une mélodie, une note à la fois. Les notes et leurs durées seront placées sur la grille.',
@@ -560,8 +732,34 @@ function analyseTake() {
   }[method];
   if (!originalPCM || recording) return;
   takeMode = method === 'rhythm' ? 'drums' : 'piano';
-  take = transcribe(originalPCM.data, originalPCM.rate, method, takeBpm, $('enhance').checked);
-  describeTake();
+  analysisWorker?.terminate();
+  const source = originalPCM;
+  const enhanced = $('enhance').checked;
+  take = [];
+  refreshTakeControls();
+  say('Analyse de la prise…');
+  const fallback = () => {
+    analysisWorker?.terminate();
+    analysisWorker = null;
+    take = transcribe(source.data, source.rate, method, takeBpm, enhanced);
+    describeTake();
+  };
+  try {
+    const worker = new Worker(new URL('./analysis-worker.js', import.meta.url), { type: 'module' });
+    analysisWorker = worker;
+    worker.onmessage = ({ data }) => {
+      if (worker !== analysisWorker) return;
+      worker.terminate();
+      analysisWorker = null;
+      take = data;
+      describeTake();
+    };
+    worker.onerror = event => {
+      event.preventDefault();
+      if (worker === analysisWorker) fallback();
+    };
+    worker.postMessage({ samples: source.data, rate: source.rate, mode: method, bpm: takeBpm, enhanced });
+  } catch { fallback(); }
 }
 $('listen-mode').onchange = $('enhance').onchange = analyseTake;
 
@@ -628,7 +826,9 @@ $('mic-record').onclick = async () => {
 
 $('transfer').onclick = () => {
   if (recording || !take.length) return;
+  stopTakePreview();
   let added = 0;
+  let trimmed = 0;
   const total = take.length;
   let firstAdded;
   const skipped = [];
@@ -638,6 +838,7 @@ $('transfer').onclick = () => {
       skipped.push(entry);
       continue;
     }
+    if (length < entry.length) trimmed++;
     const note = { ...entry, length };
     notes.push(note);
     firstAdded ??= note;
@@ -646,12 +847,17 @@ $('transfer').onclick = () => {
   }
   switchMode(takeMode);
   selectNote(firstAdded);
+  recordChange();
   if (firstAdded) rows.get(firstAdded.pitch).cells[firstAdded.step].scrollIntoView({block:'nearest', inline:'nearest'});
   take = skipped;
   refreshTakeControls();
-  say(`${added} / ${total} ajouté(s) à la grille.${added < total ? ' Les positions déjà occupées ont été conservées.' : ''}`);
+  const result = [added + ' / ' + total + ' ajouté(s) à la grille.'];
+  if (skipped.length) result.push(skipped.length + ' en attente sur des cases occupées.');
+  if (trimmed) result.push(trimmed + ' durée(s) ajustée(s) à la place disponible.');
+  say(result.join(' '));
 };
 window.addEventListener('pagehide', () => {
+  stop();
   if (micSession) endMic(micSession, 'Prise interrompue.');
   if (recording === 'keys') finishKeys();
 });
@@ -666,7 +872,12 @@ noteSettings.addEventListener('submit', event => event.preventDefault());
 for (const pitch of [...pitches].reverse()) controls.pitch.add(new Option(pitchName(pitch), pitch));
 
 for (let measure = 0; measure < STEP_COUNT / STEPS_PER_MEASURE; measure += 1) {
-  const jump = button(`M${measure + 1}`, 'measure-jump');
+  const jump = button('M' + (measure + 1), 'measure-jump');
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 28;
+  canvas.setAttribute('aria-hidden', 'true');
+  jump.append(canvas);
   jump.setAttribute('aria-label', `Afficher la mesure ${measure + 1}`);
   jump.addEventListener('click', () => {
     const width = grid.clientWidth - grid.querySelector('.grid-label').offsetWidth;
@@ -679,6 +890,7 @@ $('tempo').addEventListener('change', event => {
   const value = Math.min(210, Math.max(55, Math.round(event.target.valueAsNumber || audio.bpm)));
   event.target.value = value;
   audio.setTempo(value);
+  recordChange();
 });
 
 $('delete-note').addEventListener('click', deleteSelected);
@@ -687,75 +899,407 @@ $('clear-pattern').addEventListener('click', () => refill([], 'Effacer les notes
 $('play').addEventListener('click', togglePlay);
 $('stop').addEventListener('click', stop);
 
-buildGrid();
+function updateOverview() {
+  const visible = notes.filter(note => rows.has(note.pitch));
+  const indices = new Map(instruments[mode].map((item, i) => [item.pitch, i]));
+  const indicesUsed = visible.map(note => indices.get(note.pitch));
+  const top = indicesUsed.length ? Math.min(...indicesUsed) : 0;
+  const range = indicesUsed.length ? Math.max(4, Math.max(...indicesUsed) - top + 1) : 4;
+  document.querySelectorAll('.measure-jump canvas').forEach((canvas, bar) => {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const start = bar * 16;
+    for (const note of visible) {
+      const from = Math.max(note.step, start);
+      const to = Math.min(note.step + note.length, start + 16);
+      if (to <= from) continue;
+      ctx.fillStyle = selection.has(note) ? '#ffffff' : mode === 'piano' ? '#ffb889' : '#91dfcc';
+      ctx.fillRect((from - start) * 8, 2 + (indices.get(note.pitch) - top) / range * 23, (to - from) * 8 - 1, 2);
+    }
+  });
+}
 
-let drag;
+function noteAt(pitch, step) {
+  return notes.find(note => note.pitch === pitch && note.step <= step && step < note.step + note.length);
+}
+
+function toggleMember(note) {
+  if (selection.has(note)) selection.delete(note);
+  else selection.add(note);
+  showSelection(note);
+}
+
+function targetsFor(dx, dy, resize = false) {
+  const voices = instruments[mode];
+  return Array.from(selection, note => {
+    const index = voices.findIndex(item => item.pitch === note.pitch);
+    return {
+      ...note,
+      pitch: resize ? note.pitch : voices[index + dy]?.pitch,
+      step: resize ? note.step : note.step + dx,
+      length: resize ? Math.max(1, note.length + dx) : note.length,
+    };
+  });
+}
+
+function canPlace(targets, excluded) {
+  return fitsArrangement(notes, targets, excluded);
+}
+
+function applyPositions(targets) {
+  if (!canPlace(targets, selection)) {
+    showSelection(selected, 'Déplacement impossible · case occupée ou limite de la grille.');
+    return false;
+  }
+  const before = [...selection].map(note => note.step);
+  [...selection].forEach((note, index) => Object.assign(note, targets[index]));
+  new Set(before.concat(targets.map(note => note.step))).forEach(step => audio.refreshStep(step));
+  recordChange();
+  showSelection(selected);
+  return true;
+}
+
+function duplicateSelection() {
+  if (!selection.size) return;
+  const group = [...selection];
+  const first = Math.min(...group.map(note => note.step));
+  const end = Math.max(...group.map(note => note.step + note.length));
+  for (let offset = end - first; end + offset <= STEP_COUNT; offset++) {
+    const copies = group.map(note => ({ ...note, step: note.step + offset }));
+    if (!canPlace(copies, new Set())) continue;
+    notes.push(...copies);
+    selection = new Set(copies);
+    refreshSteps(copies);
+    recordChange();
+    showSelection(copies[0]);
+    revealSelected();
+    return;
+  }
+  showSelection(selected, 'Aucune place libre après la sélection.');
+}
+
+function revealSelected() {
+  if (!selected) return;
+  const node = blocks.get(selected);
+  if (!node) return;
+  const frame = scroll.getBoundingClientRect();
+  const rect = node.getBoundingClientRect();
+  const left = frame.left + grid.querySelector('.grid-label').offsetWidth;
+  const top = frame.top + grid.querySelector('.grid-header').offsetHeight;
+  if (rect.left < left) scroll.scrollLeft += rect.left - left;
+  else if (rect.right > frame.right) scroll.scrollLeft += rect.right - frame.right;
+  if (rect.top < top) scroll.scrollTop += rect.top - top;
+  else if (rect.bottom > frame.bottom) scroll.scrollTop += rect.bottom - frame.bottom;
+}
+
+function nudge(direction) {
+  if (!selection.size || drag) return;
+  const snap = Number($('snap').value);
+  const dx = direction === 'left' ? -snap : direction === 'right' ? snap : 0;
+  const dy = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+  if (applyPositions(targetsFor(dx, dy))) {
+    revealSelected();
+    if (dy) audition(selected);
+  }
+}
+
+function chooseTool(next) {
+  cancelGesture();
+  tool = next;
+  grid.dataset.tool = next;
+  document.querySelectorAll('button[data-tool]').forEach(item => item.setAttribute('aria-pressed', item.dataset.tool === next));
+  $('edit-help').textContent = tips[next];
+}
+document.querySelectorAll('button[data-tool]').forEach(item => item.onclick = () => chooseTool(item.dataset.tool));
+document.querySelectorAll('[data-nudge]').forEach(item => item.onclick = () => nudge(item.dataset.nudge));
+$('duplicate').onclick = duplicateSelection;
+$('undo').onclick = () => historyStep(false);
+$('redo').onclick = () => historyStep(true);
+$('zoom').onchange = () => {
+  const label = grid.querySelector('.grid-label').offsetWidth;
+  const fraction = scroll.scrollLeft / (grid.clientWidth - label);
+  grid.style.setProperty('--zoom', $('zoom').value);
+  scroll.scrollLeft = fraction * (grid.clientWidth - label);
+  revealSelected();
+};
+
+function removePreview() {
+  cancelAnimationFrame(dragFrame);
+  dragFrame = 0;
+  if (!drag) return;
+  drag.box?.remove();
+  for (const node of drag.previews) node.remove();
+  for (const note of selection) blocks.get(note)?.classList.remove('in-gesture');
+}
+function cancelGesture() {
+  if (!drag) return;
+  const id = drag.id;
+  removePreview();
+  drag = null;
+  if (grid.hasPointerCapture(id)) grid.releasePointerCapture(id);
+  showSelection(selected);
+}
+
+function createGhost(pitch, start, length, valid) {
+  const ghost = document.createElement('i');
+  ghost.className = 'note-ghost' + (valid ? '' : ' blocked');
+  ghost.style.gridColumn = (start + 1) + ' / span ' + length;
+  rows.get(pitch).steps.append(ghost);
+  return ghost;
+}
+
+function previewGesture() {
+  const g = drag;
+  if (!g || !g.moved) return;
+  const deltaX = g.clientX - g.x;
+  const deltaY = g.clientY - g.y;
+  if (g.kind === 'pan') {
+    scroll.scrollLeft = g.left - deltaX;
+    scroll.scrollTop = g.top - deltaY;
+    return;
+  }
+  const dx = deltaX + scroll.scrollLeft - g.left;
+  const dy = deltaY + scroll.scrollTop - g.top;
+  if (g.kind === 'box') {
+    const area = { left: g.originX + Math.min(dx, 0), top: g.originY + Math.min(dy, 0), width: Math.abs(dx), height: Math.abs(dy) };
+    Object.assign(g.box.style, { left: area.left + 'px', top: area.top + 'px', width: area.width + 'px', height: area.height + 'px' });
+    const bounds = g.box.getBoundingClientRect();
+    selection = g.additive ? new Set(g.base) : new Set();
+    for (const [note, node] of blocks) {
+      const rect = node.getBoundingClientRect();
+      if (rect.left < bounds.right && rect.right > bounds.left && rect.top < bounds.bottom && rect.bottom > bounds.top) selection.add(note);
+      node.classList.toggle('is-selected', selection.has(note));
+    }
+    $('edit-help').textContent = selection.size + ' note(s) dans la sélection';
+    return;
+  }
+  const snap = Number($('snap').value);
+  const steps = Math.round(dx / g.cell / snap) * snap;
+  const rowDelta = Math.round(dy / g.rowHeight);
+  if (g.signature === steps + '/' + rowDelta) return;
+  g.signature = steps + '/' + rowDelta;
+  for (const node of g.previews) node.remove();
+  g.previews = [];
+  if (g.kind === 'draw') {
+    const start = Math.max(0, Math.min(g.start, g.start + steps));
+    const end = Math.min(STEP_COUNT, Math.max(g.start, g.start + steps) + snap);
+    g.targets = [{ pitch: g.pitch, step: start, length: mode === 'drums' ? 1 : end - start, velocity: 0.74 }];
+  } else {
+    g.targets = targetsFor(steps, rowDelta, g.kind === 'resize');
+  }
+  g.valid = canPlace(g.targets, g.kind === 'draw' ? new Set() : selection);
+  for (const note of g.targets) {
+    if (!rows.has(note.pitch)) continue;
+    const from = Math.max(0, note.step);
+    const to = Math.min(STEP_COUNT, note.step + note.length);
+    if (to > from) g.previews.push(createGhost(note.pitch, from, to - from, g.valid));
+  }
+  const first = g.targets[0];
+  const name = instruments[mode].find(item => item.pitch === first.pitch)?.label;
+  $('edit-help').textContent = g.valid
+    ? (g.targets.length > 1 ? g.targets.length + ' notes' : name) + ' · ' + stepLabel(first.step) + ' · durée ' + first.length + ' pas'
+    : 'Position indisponible · lâche pour garder la position de départ.';
+}
+
+function edgeScroll() {
+  if (!drag || !drag.moved || drag.kind === 'pan') return;
+  const frame = scroll.getBoundingClientRect();
+  const left = frame.left + grid.querySelector('.grid-label').offsetWidth;
+  const top = frame.top + grid.querySelector('.grid-header').offsetHeight;
+  const speed = (point, lo, hi) => point < lo + 15 ? -8 : point > hi - 15 ? 8 : 0;
+  const dx = speed(drag.clientX, left, frame.right);
+  const dy = speed(drag.clientY, top, frame.bottom);
+  if (dx || dy) {
+    scroll.scrollLeft += dx;
+    scroll.scrollTop += dy;
+    previewGesture();
+  }
+  dragFrame = requestAnimationFrame(edgeScroll);
+}
+
 grid.addEventListener('pointerdown', event => {
+  if (event.button !== 0 || drag) return;
+  suppressClick = false;
   const block = event.target.closest('.note-block');
-  if (!block || event.button !== 0 || drag) return;
-  const pitch = readPitch(block.dataset.voice);
-  const note = notes.find(item => item.pitch === pitch && item.step === Number(block.dataset.start));
-  if (!note) return;
+  const cell = event.target.closest('.step');
+  if (!block && !cell) return;
+  const pitch = readPitch(block?.dataset.voice ?? cell.dataset.pitch);
+  const step = Number(block?.dataset.start ?? cell.dataset.step);
+  const note = block && noteAt(pitch, step);
+  if (tool === 'erase' && note) {
+    selectNote(note);
+    deleteSelected();
+    suppressClick = true;
+    event.preventDefault();
+    return;
+  }
+  if (!note && tool === 'erase') return;
+  // Empty cells in pencil mode retain native touch scrolling and tap-to-write.
+  if (!note && tool === 'draw' && event.pointerType === 'touch') return;
   const rect = rows.get(pitch).steps.getBoundingClientRect();
-  const resize = event.target.classList.contains('resize');
+  const toggle = tool === 'select' || event.shiftKey;
+  let kind;
+  if (tool === 'pan') kind = 'pan';
+  else if (note) kind = event.target.closest('.resize') ? 'resize' : 'move';
+  else kind = toggle ? 'box' : 'draw';
+  const base = new Set(selection);
+  if (note && kind !== 'pan' && !selection.has(note)) {
+    if (!toggle) selection.clear();
+    selection.add(note);
+    showSelection(note);
+  }
+  const gridRect = grid.getBoundingClientRect();
+  const snap = Number($('snap').value);
   drag = {
-    id: event.pointerId, block, note, resize,
-    x: event.clientX, y: event.clientY, cellWidth: rect.width / STEP_COUNT,
-    rowHeight: rect.height, target: { ...note },
+    id: event.pointerId, kind, toggle, note, pitch, start: Math.floor(step / snap) * snap, base, cellNode: cell,
+    x: event.clientX, y: event.clientY, clientX: event.clientX, clientY: event.clientY,
+    left: scroll.scrollLeft, top: scroll.scrollTop, cell: rect.width / STEP_COUNT, rowHeight: rect.height,
+    originX: event.clientX - gridRect.left, originY: event.clientY - gridRect.top, previews: [], moved: false,
   };
+  if (kind === 'box') {
+    drag.additive = event.shiftKey;
+    drag.box = document.createElement('div');
+    drag.box.className = 'marquee';
+    grid.append(drag.box);
+  }
   grid.setPointerCapture(event.pointerId);
-  block.classList.add('dragging');
   event.preventDefault();
 });
 
 grid.addEventListener('pointermove', event => {
-  if (!drag || drag.id !== event.pointerId) return;
-  const { note, cellWidth, rowHeight } = drag;
-  const dx = Math.round((event.clientX - drag.x) / cellWidth);
-  const dy = Math.round((event.clientY - drag.y) / rowHeight);
-  const voices = instruments[mode];
-  const index = voices.findIndex(item => item.pitch === note.pitch);
-  const row = drag.resize ? index : Math.min(voices.length - 1, Math.max(0, index + dy));
-  const pitch = voices[row].pitch;
-  const step = drag.resize ? note.step : Math.max(0, Math.min(STEP_COUNT - note.length, note.step + dx));
-  const length = drag.resize ? Math.max(1, Math.min(STEP_COUNT - step, note.length + dx)) : note.length;
-  if (maxLength(pitch, step, note) < length) return;
-  drag.target = { pitch, step, length };
-  drag.block.style.transform = `translate(${(step - note.step) * cellWidth}px, ${(row - index) * rowHeight}px)`;
-  drag.block.style.gridColumnEnd = `span ${length}`;
+  if (!drag || event.pointerId !== drag.id) return;
+  drag.clientX = event.clientX;
+  drag.clientY = event.clientY;
+  if (!drag.moved) {
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 4) return;
+    drag.moved = true;
+    if (drag.note && drag.kind !== 'pan') {
+      for (const note of selection) blocks.get(note)?.classList.add('in-gesture');
+    }
+    dragFrame = requestAnimationFrame(edgeScroll);
+  }
+  previewGesture();
 });
 
-function finishDrag(event) {
+function finishGesture(event) {
   if (!drag || event.pointerId !== drag.id) return;
-  const { note, target } = drag;
-  drag = null;
-  if (event.type === 'pointerup') {
-    const oldStep = note.step;
-    Object.assign(note, target);
-    audio.refreshStep(oldStep);
-    if (note.step !== oldStep) audio.refreshStep(note.step);
+  const g = drag;
+  suppressClick = true;
+  if (event.type !== 'pointerup') {
+    selection = new Set(g.base);
+    cancelGesture();
+    return;
   }
-  selectNote(note);
+  if (g.moved) {
+    g.clientX = event.clientX;
+    g.clientY = event.clientY;
+    previewGesture();
+  }
+  removePreview();
+  drag = null;
+  if (g.kind === 'pan') return;
+  if (!g.moved) {
+    if (g.note) {
+      if (g.toggle && g.base.has(g.note)) toggleMember(g.note);
+      else if (g.toggle) showSelection(g.note);
+      else selectNote(g.note);
+      if (selection.has(g.note)) audition(g.note);
+    } else if (g.kind === 'box') selectNote(null);
+    else editCell(g.cellNode);
+    return;
+  }
+  if (g.kind === 'box') { showSelection(selected); return; }
+  if (!g.valid) { showSelection(selected, 'Position indisponible · position de départ conservée.'); return; }
+  if (g.kind === 'draw') {
+    const note = g.targets[0];
+    notes.push(note);
+    selectNote(note);
+    refreshSteps([note]);
+    recordChange();
+    audition(note);
+  } else {
+    applyPositions(g.targets);
+    if (g.kind === 'move' && selected) audition(selected);
+  }
 }
-grid.addEventListener('pointerup', finishDrag);
-grid.addEventListener('pointercancel', finishDrag);
-grid.addEventListener('lostpointercapture', finishDrag);
+grid.addEventListener('pointerup', finishGesture);
+grid.addEventListener('pointercancel', finishGesture);
+grid.addEventListener('lostpointercapture', finishGesture);
 grid.addEventListener('contextmenu', event => {
   const block = event.target.closest('.note-block');
   if (!block) return;
   event.preventDefault();
-  selected = notes.find(note => note.pitch === readPitch(block.dataset.voice) && note.step === Number(block.dataset.start));
+  cancelGesture();
+  const note = noteAt(readPitch(block.dataset.voice), Number(block.dataset.start));
+  if (!selection.has(note)) selectNote(note);
   deleteSelected();
 });
-$('duplicate').onclick = () => {
-  if (!selected) return;
-  for (let step = selected.step + selected.length; step <= STEP_COUNT - selected.length; step++) {
-    if (maxLength(selected.pitch, step) < selected.length) continue;
-    const copy = { ...selected, step };
-    notes.push(copy);
-    audio.refreshStep(step);
-    selectNote(copy);
+
+document.addEventListener('keydown', event => {
+  if (event.target.closest?.('input, select, textarea, [contenteditable]')) return;
+  const key = event.key.toLowerCase();
+  const command = event.ctrlKey || event.metaKey;
+  if (key === 'escape') {
+    if (drag) { selection = new Set(drag.base); cancelGesture(); }
+    else selectNote(null);
     return;
   }
-  selectNote(selected, 'Aucune place libre après cette note.');
+  if (drag) return;
+  if (command && (key === 'z' || key === 'y')) {
+    event.preventDefault();
+    historyStep(key === 'y' || event.shiftKey);
+  } else if (command && key === 'd' && selection.size) {
+    event.preventDefault();
+    duplicateSelection();
+  } else if (event.shiftKey && key.startsWith('arrow') && selection.size) {
+    event.preventDefault();
+    nudge(key.slice(5));
+  } else if ((key === 'delete' || key === 'backspace') && selection.size) {
+    event.preventDefault();
+    deleteSelected();
+  }
+});
+
+$('keyboard-link').onclick = () => switchMode('piano');
+document.querySelector('.project-menu').addEventListener('click', event => {
+  if (event.target.closest('button')) event.currentTarget.open = false;
+});
+$('save-project').onclick = () => download(URL.createObjectURL(new Blob([currentSnapshot], { type: 'application/json' })), 'meloa-projet.json');
+$('open-project').onclick = () => $('project-file').click();
+$('project-file').onchange = async event => {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file || recording) return;
+  try {
+    if (file.size > 1024 * 1024) throw new Error('Fichier trop volumineux.');
+    const project = decodeProject(await file.text());
+    if (recording) return;
+    restore(project);
+    recordChange();
+    $('edit-help').textContent = 'Projet ouvert · ' + notes.length + ' événements.';
+  } catch { $('edit-help').textContent = 'Ouverture impossible. Choisis un fichier projet Meloa valide.'; }
 };
+$('export-wav').onclick = async () => {
+  if (exporting || !notes.length) return;
+  exporting = true;
+  syncHistory();
+  const snapshot = decodeProject(currentSnapshot);
+  $('export-wav').textContent = 'Export en cours…';
+  try {
+    await prepareAudio();
+    const buffer = await audio.renderLoop(snapshot.notes, snapshot.bpm);
+    const left = buffer.getChannelData(0);
+    const right = buffer.getChannelData(1);
+    const data = new Float32Array(left.length * 2);
+    for (let i = 0; i < left.length; i++) {
+      data[2 * i] = left[i];
+      data[2 * i + 1] = right[i];
+    }
+    download(makeWav(data, buffer.sampleRate, 2), 'meloa-' + snapshot.bpm + 'bpm.wav');
+  } catch { $('status').textContent = 'Export audio impossible. Réessaie.'; }
+  finally { exporting = false; $('export-wav').textContent = 'Exporter en WAV'; syncHistory(); }
+};
+$('tempo').value = audio.bpm;
+if (saved) $('save-state').textContent = 'Boucle restaurée';
+buildGrid();
+chooseTool('draw');

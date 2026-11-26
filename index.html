@@ -17,6 +17,8 @@
       <span>Meloa</span>
     </div>
     <nav aria-label="Meloa">
+      <a href="#sequence">Séquenceur</a>
+      <a href="#keyboard-panel" id="keyboard-link">Clavier</a>
       <a href="#listen-panel">Écoute micro</a>
     </nav>
   </header>
@@ -25,11 +27,18 @@
     <header class="studio-header">
       <div>
         <h1>Studio</h1>
-        <p>Compose une boucle sur quatre mesures.</p>
+        <p>4 mesures <span aria-hidden="true">·</span> 4/4 <span aria-hidden="true">·</span> Piano et batterie</p>
       </div>
       <div class="pattern-actions">
+        <span id="save-state" role="status"></span>
+        <button type="button" id="export-wav" class="secondary">Exporter en WAV</button>
+        <details class="project-menu"><summary class="secondary">Projet</summary><div>
+        <button type="button" id="save-project" class="secondary">Télécharger le projet</button>
+        <button type="button" id="open-project" class="secondary">Ouvrir un projet…</button>
+        <input id="project-file" type="file" accept=".json,application/json" hidden>
         <button type="button" id="load-example" class="secondary">Charger l’exemple</button>
-        <button type="button" id="clear-pattern" class="secondary">Vider</button>
+        <button type="button" id="clear-pattern" class="secondary">Vider la boucle</button>
+        </div></details>
       </div>
     </header>
 
@@ -59,26 +68,44 @@
       <p id="status" class="status" role="status"></p>
     </section>
 
-    <section class="editor" aria-label="Éditeur de séquence">
+    <section class="editor" id="sequence" aria-label="Éditeur de séquence">
       <header class="editor-toolbar">
-        <div class="tabs" role="tablist" aria-label="Instrument">
+        <div class="track-controls"><h2>Séquenceur</h2><div class="tabs" role="tablist" aria-label="Instrument">
           <button role="tab" id="piano-tab" type="button" aria-selected="true" aria-controls="instrument-panel" data-mode="piano">Piano</button>
           <button role="tab" id="drums-tab" type="button" aria-selected="false" aria-controls="instrument-panel" tabindex="-1" data-mode="drums">Batterie</button>
+        </div>
         </div>
         <div id="measure-nav" class="measure-nav" aria-label="Aller à une mesure"></div>
       </header>
 
+      <div class="edit-tools">
+        <div class="tool-group" role="group" aria-label="Outil de grille">
+          <button data-tool="draw" aria-pressed="true" title="Écrire ou déplacer une note">Crayon</button>
+          <button data-tool="select" aria-pressed="false" title="Encadrer ou toucher plusieurs notes">Sélection</button>
+          <button data-tool="erase" aria-pressed="false" title="Effacer une note">Gomme</button>
+          <button data-tool="pan" aria-pressed="false" title="Faire défiler la grille">Main</button>
+        </div>
+        <label>Pas <select id="snap" aria-label="Pas d’édition"><option value="1">1/16</option><option value="2">1/8</option><option value="4">1/4</option></select></label>
+        <label>Zoom <select id="zoom"><option value="1">×1</option><option value="1.5">×1,5</option><option value="2">×2</option></select></label>
+        <div class="history-tools">
+          <button id="undo" title="Annuler (Ctrl ou Cmd + Z)" aria-label="Annuler">↶</button>
+          <button id="redo" title="Rétablir (Ctrl ou Cmd + Maj + Z)" aria-label="Rétablir">↷</button>
+        </div>
+      </div>
       <div id="instrument-panel" role="tabpanel" aria-labelledby="piano-tab">
         <div class="grid-scroll" id="grid-scroll">
           <div class="grid" id="grid" data-mode="piano"></div>
         </div>
         <div class="editor-footer">
-          <p id="edit-help">Clique pour écrire, glisse une note pour la déplacer ou tire son bord droit pour l’allonger.</p>
+          <p id="edit-help" role="status">Clique pour écrire, glisse une note pour la déplacer ou tire son bord droit pour l’allonger.</p>
           <form id="note-settings" class="note-settings" hidden>
             <label>Départ <input aria-label="Pas de départ" type="number" id="note-step" min="1" max="64" inputmode="numeric"></label>
             <label>Durée <input aria-label="Durée en pas" type="number" id="note-length" min="1" max="64" inputmode="numeric"></label>
             <label id="pitch-setting">Note <select id="note-pitch" aria-label="Hauteur de la note"></select></label>
             <label>Force <input aria-label="Force de frappe" type="range" id="note-velocity" min="20" max="100"></label>
+            <div class="nudge" role="group" aria-label="Déplacer la sélection">
+              <button type="button" data-nudge="left" aria-label="Décaler vers la gauche" title="Reculer">←</button><button type="button" data-nudge="right" aria-label="Décaler vers la droite" title="Avancer">→</button><button type="button" data-nudge="up" aria-label="Monter" title="Monter">↑</button><button type="button" data-nudge="down" aria-label="Descendre" title="Descendre">↓</button>
+            </div>
             <button type="button" id="duplicate" class="secondary">Dupliquer</button>
             <button type="button" id="delete-note" class="secondary">Supprimer</button>
           </form>
@@ -86,6 +113,7 @@
       </div>
     </section>
 
+    <div class="capture-panels">
     <section class="keyboard-panel" id="keyboard-panel" aria-label="Clavier de piano">
       <div class="keyboard-heading">
         <h2>Clavier</h2>
@@ -106,7 +134,9 @@
       </div>
       <p id="listen-help"></p><audio controls id="original" hidden></audio>
     </section>
+    </div>
     <div class="take-bar" id="take-bar" aria-live="polite"><span id="take-status"></span>
+      <button class="secondary" id="hear-take" hidden aria-pressed="false">Écouter la prise</button>
       <button class="play" id="transfer" hidden>Ajouter à la grille</button>
     </div>
     <footer class="credits"><a href="capture/">Ancien prototype</a> · <a href="assets/credits.txt">Crédits des sons</a></footer>

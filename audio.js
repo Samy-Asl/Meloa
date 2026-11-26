@@ -34,14 +34,7 @@ export class StudioAudio {
     if (!this.context) {
       const Context = window.AudioContext || window.webkitAudioContext;
       this.context = new Context({ latencyHint: 'interactive' });
-      this.master = this.context.createGain();
-      this.master.gain.value = 0.68;
-      const limiter = this.context.createDynamicsCompressor();
-      limiter.threshold.value = -11;
-      limiter.knee.value = 9;
-      limiter.ratio.value = 4;
-      this.master.connect(limiter);
-      limiter.connect(this.context.destination);
+      this.connectMaster();
     }
     const resume = this.context.resume();
     this.loading ??= Promise.all(SAMPLE_FILES.map(async file => {
@@ -54,6 +47,31 @@ export class StudioAudio {
       throw error;
     });
     await Promise.all([resume, this.loading]);
+  }
+
+  connectMaster() {
+    this.master = this.context.createGain();
+    this.master.gain.value = 0.68;
+    const limiter = this.context.createDynamicsCompressor();
+    limiter.threshold.value = -11;
+    limiter.knee.value = 9;
+    limiter.ratio.value = 4;
+    this.master.connect(limiter);
+    limiter.connect(this.context.destination);
+  }
+
+  async renderLoop(notes, bpm) {
+    const rate = 44100;
+    const renderer = new StudioAudio(null, bpm);
+    const frames = Math.round(STEP_COUNT * renderer.stepDuration * rate);
+    renderer.context = new OfflineAudioContext(2, frames, rate);
+    renderer.buffers = this.buffers;
+    renderer.connectMaster();
+    for (const note of notes) renderer.playNote(note, note.step * renderer.stepDuration);
+    const end = frames / rate;
+    renderer.master.gain.setValueAtTime(renderer.master.gain.value, end - 0.006);
+    renderer.master.gain.linearRampToValueAtTime(0, end);
+    return renderer.context.startRendering();
   }
 
   get stepDuration() { return 60 / (this.bpm * 4); }
@@ -83,6 +101,13 @@ export class StudioAudio {
   stop() {
     this.pause();
     this.cursor = 0;
+  }
+
+  seek(step) {
+    const resume = this.playing;
+    if (resume) this.pause();
+    this.cursor = step;
+    if (resume) this.start();
   }
 
   setTempo(bpm) {
