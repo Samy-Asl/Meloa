@@ -1,5 +1,6 @@
 import { decodeProject, download, encodeProject, fitsArrangement, readSaved, saveLocal } from './project.js';
 import { transcribe } from './listen.js';
+import { formatTime, renderPattern, TakePlayer } from './take-player.js';
 import { DRUMS, STEP_COUNT, STEPS_PER_MEASURE, StudioAudio } from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -40,6 +41,7 @@ let rows = new Map();
 let lastCell = null;
 let animation = null;
 let playRequest = 0;
+let playPending = false;
 let auditionSession = 0;
 let loadingAudio = null;
 
@@ -250,6 +252,7 @@ function restore(project) {
   stop();
   notes = project.notes;
   audio.setTempo(project.bpm);
+  refreshTakeTempo();
   $('tempo').value = project.bpm;
   selectNote(null);
 }
@@ -349,6 +352,7 @@ async function prepareAudio() {
 }
 
 async function audition(note) {
+  if (recording === 'mic') return;
   const session = auditionSession;
   try {
     await prepareAudio();
@@ -359,13 +363,15 @@ async function audition(note) {
 }
 
 async function togglePlay() {
+  if (recording === 'mic') return;
   if (audio.playing) {
     audio.pause();
     updateTransport();
     return;
   }
-  stopTakePreview();
+  takePlayer.pause();
   const request = ++playRequest;
+  playPending = true;
   $('play').disabled = true;
   try {
     await prepareAudio();
@@ -375,16 +381,24 @@ async function togglePlay() {
   } catch {
     // Keep the play button available for a retry.
   } finally {
-    if (request === playRequest) $('play').disabled = false;
+    if (request === playRequest) {
+      playPending = false;
+      $('play').disabled = recording === 'mic';
+    }
   }
 }
 
 function stop() {
-  stopTakePreview();
+  takePlayer.pause();
+  stopTransport();
+}
+
+function stopTransport() {
   playRequest += 1;
+  playPending = false;
   auditionSession += 1;
   audio.stop();
-  $('play').disabled = false;
+  $('play').disabled = recording === 'mic';
   updateTransport();
 }
 
@@ -430,9 +444,6 @@ function switchMode(next, focus = false) {
   }
   $('instrument-panel').setAttribute('aria-labelledby', mode === 'piano' ? 'piano-tab' : 'drums-tab');
   if (mode === 'drums' && recording === 'keys') finishKeys();
-  if (mode === 'drums' && $('keyboard-panel').contains($('take-bar'))) {
-    document.querySelector('.capture-panels').after($('take-bar'));
-  }
   $('keyboard-panel').hidden = mode === 'drums';
   $('pitch-setting').hidden = mode === 'drums';
   controls.length.parentElement.hidden = mode === 'drums';
@@ -518,91 +529,137 @@ let exporting = false;
 let suppressClick = false;
 let recording = '';
 let take = [];
+let takeResult = [];
 let takeMode = 'piano';
+let takeOrigin = '';
+let takeBpm = audio.bpm;
 let keyStart = null;
-let takePreview = null;
-let takePreviewTimer = 0;
-let previewRequest = 0;
 let keyTimeout;
 let micSession;
+let micState = 'idle';
 let analysisWorker = null;
-let originalPCM;
-let originalURL;
-let takeBpm = audio.bpm;
+let analysing = false;
+let method = 'both';
+let originalTrack = null;
+let resultTrack = null;
+let lastTransferred = null;
 const held = new Map();
 const keyboardButtons = new Map();
-const say = message => { $('take-status').textContent = message; };
+const review = $('take-review');
+const recordCard = $('mic-record').closest('.mic-record-card');
+const takePlayer = new TakePlayer(review, {
+  resume: () => audio.resume(),
+  beforePlay: stopTransport,
+  canPlay: () => !recording,
+});
 
-function refreshTakeControls() {
-  $('key-record').textContent = recording === 'keys' ? 'Terminer la prise' : 'Enregistrer le clavier';
-  $('mic-record').textContent = recording === 'mic' ? 'Terminer la prise' : 'Enregistrer au micro';
-  $('mic-record').disabled = recording === 'keys';
-  $('key-record').disabled = recording === 'mic';
-  $('key-record').setAttribute('aria-pressed', recording === 'keys');
-  $('mic-record').setAttribute('aria-pressed', recording === 'mic');
-  $('hear-take').hidden = $('transfer').hidden = !!recording || !take.length;
-  $('tempo').disabled = !!recording;
-  $('open-project').disabled = $('clear-pattern').disabled = $('load-example').disabled = !!recording;
+function drawTakePattern() {
+  renderPattern($('take-pattern-canvas'), takeResult, STEP_COUNT);
+}
+new ResizeObserver(drawTakePattern).observe($('take-pattern-canvas'));
+
+function refreshTakeControls({ resetPlayer = false } = {}) {
+  const isMic = recording === 'mic';
+  const isKeys = recording === 'keys';
+  const micLabels = {
+    idle: 'Enregistrer au micro',
+    opening: 'Annuler',
+    recording: 'Terminer la prise',
+    stopping: 'Finalisation…',
+  };
+  recordCard.dataset.recordState = micState;
+  $('key-record').textContent = isKeys ? 'Terminer la prise' : 'Enregistrer le clavier';
+  $('mic-record-label').textContent = micLabels[micState];
+  $('mic-record').disabled = isKeys || micState === 'stopping';
+  $('key-record').disabled = isMic;
+  $('key-record').setAttribute('aria-pressed', String(isKeys));
+  $('mic-record').setAttribute('aria-pressed', String(isMic));
+  $('play').disabled = isMic || playPending;
+  for (const choice of document.querySelectorAll('[data-listen-mode]')) {
+    choice.disabled = Boolean(recording);
+    choice.setAttribute('aria-pressed', String(method === choice.dataset.listenMode));
+  }
+  $('enhance').disabled = Boolean(recording);
+  $('tempo').disabled = Boolean(recording);
+  $('open-project').disabled = $('clear-pattern').disabled = $('load-example').disabled = Boolean(recording);
+  $('transfer').disabled = Boolean(recording) || analysing || !take.length;
+  $('key-take-link').hidden = takeOrigin !== 'keys' || !takeResult.length || Boolean(recording);
+  $('take-caption').hidden = !takeOrigin || (!originalTrack && !takeResult.length);
+  $('take-caption').textContent = takeOrigin === 'keys' ? 'Prise clavier' : 'Prise micro';
+  review.dataset.takeState = analysing ? 'analysing' : take.length ? 'ready' : takeResult.length ? 'sent' : 'empty';
+  const destination = takeMode === 'drums' ? 'Batterie' : 'Piano';
+  const noun = takeMode === 'drums' ? 'frappe' : 'note';
+  const count = takeResult.length;
+  $('take-summary').textContent = analysing ? 'Analyse en cours…' : count
+    ? count + ' ' + noun + (count > 1 ? 's' : '') + ' · ' + destination
+    : 'Aucun résultat à transférer.';
+  $('take-pattern').classList.toggle('is-empty', !count);
+  takePlayer.emptyMessage = recording ? '' : 'La prise apparaîtra après l’enregistrement.';
+  takePlayer.setTracks({ original: originalTrack, result: resultTrack }, takeOrigin === 'keys' ? 'result' : 'original', { reset: resetPlayer });
+  drawTakePattern();
   syncHistory();
 }
 
-function stopTakePreview() {
-  previewRequest++;
-  clearTimeout(takePreviewTimer);
-  takePreview?.cancelVoices();
-  takePreview = null;
-  $('hear-take').setAttribute('aria-pressed', 'false');
-  $('hear-take').textContent = 'Écouter la prise';
+function makeResultTrack(notes, bpm) {
+  if (!notes.length) return null;
+  const end = Math.max(...notes.map(note => note.step + note.length));
+  const duration = end * 60 / (bpm * 4) + 0.5;
+  return {
+    bpm, duration,
+    async load() {
+      await audio.loadSamples();
+      return audio.renderLoop(notes, bpm, duration);
+    },
+  };
 }
 
-$('hear-take').onclick = async () => {
-  if ($('hear-take').getAttribute('aria-pressed') === 'true') return stopTakePreview();
-  if (!take.length || recording) return;
-  stop();
-  const request = ++previewRequest;
-  $('hear-take').setAttribute('aria-pressed', 'true');
-  $('hear-take').textContent = 'Arrêter l’écoute';
-  try {
-    await prepareAudio();
-    if (request !== previewRequest) return;
-    takePreview = new StudioAudio(null, audio.bpm);
-    takePreview.context = audio.context;
-    takePreview.master = audio.master;
-    takePreview.buffers = audio.buffers;
-    const first = audio.context.currentTime + 0.04;
-    for (const note of take) takePreview.playNote(note, first + note.step * takePreview.stepDuration);
-    const end = Math.max(...take.map(note => note.step + note.length)) * takePreview.stepDuration;
-    takePreviewTimer = setTimeout(stopTakePreview, (end + 0.6) * 1000);
-  } catch { stopTakePreview(); }
-};
+function updateMicMonitor(seconds = 0, peak = 0) {
+  const level = Math.min(100, Math.max(0, Math.round((60 + 20 * Math.log10(peak)) * (100 / 60))));
+  const display = formatTime(seconds);
+  if ($('mic-clock').textContent !== display) $('mic-clock').textContent = display;
+  $('mic-level').style.setProperty('--level', level + '%');
+  $('mic-level').setAttribute('aria-valuenow', String(level));
+}
 
-function clearOriginal() {
-  analysisWorker?.terminate();
-  analysisWorker = null;
-  originalPCM = null;
-  $('original').pause();
-  $('original').removeAttribute('src');
-  $('original').load();
-  $('original').hidden = true;
-  if (originalURL) URL.revokeObjectURL(originalURL);
-  originalURL = null;
+function refreshTakeTempo() {
+  $('mic-limit').textContent = formatTime(STEP_COUNT * audio.stepDuration);
+  if (resultTrack?.bpm !== audio.bpm) resultTrack = makeResultTrack(takeResult, audio.bpm);
+  refreshTakeControls();
 }
 
 function arm(kind) {
-  if (recording || ((take.length || analysisWorker) && !confirm('Remplacer la prise en attente ?'))) return false;
-  stopTakePreview();
+  if (recording || ((take.length || analysing) && !confirm('Remplacer la prise en attente ?'))) return false;
+  takePlayer.pause();
+  analysisWorker?.terminate();
+  analysisWorker = null;
+  analysing = false;
   take = [];
-  clearOriginal();
+  takeResult = [];
+  originalTrack = null;
+  resultTrack = null;
+  lastTransferred = null;
+  $('take-show-grid').hidden = true;
   takeBpm = audio.bpm;
+  takeOrigin = kind;
   recording = kind;
-  $(kind === 'keys' ? 'keyboard-panel' : 'listen-panel').append($('take-bar'));
-  refreshTakeControls();
+  $('take-status').textContent = '';
+  $('mic-status').dataset.tone = 'neutral';
+  $('mic-status').textContent = '';
+  $('key-status').textContent = '';
+  updateMicMonitor();
   return true;
 }
 
-function describeTake() {
-  const count = take.length;
-  say(count ? `${count} événement${count > 1 ? 's' : ''} à ajouter à la piste ${takeMode === 'piano' ? 'piano' : 'batterie'}.` : 'Aucun événement détecté. Essaie une prise plus nette ou change le mode.');
+function describeTake(detected) {
+  analysing = false;
+  take = detected;
+  takeResult = detected;
+  resultTrack = makeResultTrack(detected, audio.bpm);
+  const count = detected.length;
+  $('take-status').textContent = !count && takeOrigin === 'mic'
+    ? 'Aucun événement détecté. Tu peux changer le mode ou refaire une prise.'
+    : '';
+  if (takeOrigin === 'keys') $('key-status').textContent = count ? 'Prise clavier prête.' : 'Aucune note jouée.';
   refreshTakeControls();
 }
 
@@ -620,11 +677,11 @@ function finishKeys() {
   clearTimeout(keyTimeout);
   for (const id of [...held.keys()]) releaseKey(id);
   recording = '';
-  describeTake();
+  describeTake(take);
 }
 
 async function pressKey(id, pitch, key) {
-  if (held.has(id)) return;
+  if (recording === 'mic' || held.has(id)) return;
   const started = performance.now();
   const item = { key, started };
   held.set(id, item);
@@ -633,7 +690,7 @@ async function pressKey(id, pitch, key) {
     if (keyStart === null) {
       keyStart = started;
       keyTimeout = setTimeout(finishKeys, STEP_COUNT * audio.stepDuration * 1000);
-      say('Enregistrement du clavier en cours…');
+      $('key-status').textContent = 'Enregistrement du clavier en cours…';
     }
     const elapsedSteps = Math.round((started - keyStart) / (audio.stepDuration * 1000));
     const step = audio.playing ? Math.round(audio.position) % STEP_COUNT : elapsedSteps;
@@ -706,9 +763,10 @@ $('key-record').onclick = async () => {
   if (!arm('keys')) return;
   takeMode = 'piano';
   keyStart = null;
+  $('key-status').textContent = 'Joue la première note pour démarrer.';
+  refreshTakeControls({ resetPlayer: true });
   try {
     await prepareAudio();
-    if (recording === 'keys' && keyStart === null) say('Joue ta première note pour lancer les quatre mesures.');
   } catch { finishKeys(); }
 };
 
@@ -723,26 +781,36 @@ function makeWav(data, rate, channels = 1) {
 }
 
 function analyseTake() {
-  stopTakePreview();
-  const method = $('listen-mode').value;
   $('listen-help').textContent = {
-    both: 'Fredonne une mélodie, une note à la fois. Les notes et leurs durées seront placées sur la grille.',
-    pitch: 'Fredonne une mélodie, une note à la fois. Chaque hauteur détectée occupera un temps.',
-    rhythm: 'Tape un rythme. Chaque attaque détectée deviendra un kick sur la grille.',
+    both: 'Fredonne une note à la fois. Meloa relève les hauteurs, les départs et les durées.',
+    pitch: 'Fredonne une note à la fois. Chaque hauteur détectée sera placée sur un temps.',
+    rhythm: 'Tape ton rythme. Chaque attaque détectée déclenchera un kick.',
   }[method];
-  if (!originalPCM || recording) return;
-  takeMode = method === 'rhythm' ? 'drums' : 'piano';
-  analysisWorker?.terminate();
-  const source = originalPCM;
+  if (!originalTrack || recording) return;
+  const source = originalTrack;
+  const selectedMethod = method;
   const enhanced = $('enhance').checked;
+  takeMode = selectedMethod === 'rhythm' ? 'drums' : 'piano';
+  analysisWorker?.terminate();
+  analysisWorker = null;
+  analysing = true;
   take = [];
+  takeResult = [];
+  resultTrack = null;
+  $('take-status').textContent = '';
+  lastTransferred = null;
+  $('take-show-grid').hidden = true;
   refreshTakeControls();
-  say('Analyse de la prise…');
   const fallback = () => {
     analysisWorker?.terminate();
     analysisWorker = null;
-    take = transcribe(source.data, source.rate, method, takeBpm, enhanced);
-    describeTake();
+    try {
+      describeTake(transcribe(source.samples, source.rate, selectedMethod, takeBpm, enhanced));
+    } catch {
+      analysing = false;
+      $('take-status').textContent = 'Analyse impossible. Réessaie en changeant le mode.';
+      refreshTakeControls();
+    }
   };
   try {
     const worker = new Worker(new URL('./analysis-worker.js', import.meta.url), { type: 'module' });
@@ -751,19 +819,31 @@ function analyseTake() {
       if (worker !== analysisWorker) return;
       worker.terminate();
       analysisWorker = null;
-      take = data;
-      describeTake();
+      describeTake(data);
     };
     worker.onerror = event => {
       event.preventDefault();
       if (worker === analysisWorker) fallback();
     };
-    worker.postMessage({ samples: source.data, rate: source.rate, mode: method, bpm: takeBpm, enhanced });
-  } catch { fallback(); }
+    worker.postMessage({ samples: source.samples, rate: source.rate, mode: selectedMethod, bpm: takeBpm, enhanced });
+  } catch {
+    fallback();
+  }
 }
-$('listen-mode').onchange = $('enhance').onchange = analyseTake;
+for (const choice of document.querySelectorAll('[data-listen-mode]')) {
+  choice.onclick = () => {
+    if (method === choice.dataset.listenMode) return;
+    method = choice.dataset.listenMode;
+    analyseTake();
+    refreshTakeControls();
+  };
+}
+$('enhance').onchange = analyseTake;
 
 function cleanMic(session) {
+  clearTimeout(session.deadline);
+  clearTimeout(session.stopTimeout);
+  if (session.node) session.node.port.onmessage = null;
   session.stream?.getTracks().forEach(track => track.stop());
   session.input?.disconnect();
   session.node?.disconnect();
@@ -774,62 +854,97 @@ function endMic(session, error) {
   micSession = null;
   cleanMic(session);
   recording = '';
-  refreshTakeControls();
-  if (error || !session.chunks.length) {
-    say(error || 'Prise micro vide.');
+  micState = 'idle';
+  const rate = session.context?.sampleRate;
+  updateMicMonitor(rate ? session.samples / rate : 0);
+  if (error || !session.samples) {
+    $('mic-status').dataset.tone = error === 'Prise annulée.' ? 'neutral' : 'error';
+    $('mic-status').textContent = error || 'Prise vide. Réessaie.';
+    refreshTakeControls();
     return;
   }
-  const data = new Float32Array(session.chunks.reduce((sum, chunk) => sum + chunk.length, 0));
+  const samples = new Float32Array(session.samples);
   let offset = 0;
-  for (const chunk of session.chunks) { data.set(chunk, offset); offset += chunk.length; }
-  originalPCM = { data, rate: session.context.sampleRate };
-  originalURL = makeWav(data, originalPCM.rate);
-  $('original').src = originalURL;
-  $('original').hidden = false;
+  for (const chunk of session.chunks) {
+    samples.set(chunk, offset);
+    offset += chunk.length;
+  }
+  originalTrack = {
+    samples, rate, duration: samples.length / rate,
+    load(context) {
+      const buffer = context.createBuffer(1, samples.length, rate);
+      buffer.copyToChannel(samples, 0);
+      return buffer;
+    },
+  };
+  $('mic-status').textContent = 'Prise enregistrée.';
   analyseTake();
 }
 function finishMic() {
-  if (!micSession) return;
-  if (micSession.node) micSession.node.port.postMessage('stop');
-  else endMic(micSession, 'Prise annulée.');
+  const session = micSession;
+  if (!session || micState === 'stopping') return;
+  if (!session.node) return endMic(session, 'Prise annulée.');
+  micState = 'stopping';
+  $('mic-status').textContent = 'Finalisation de la prise…';
+  refreshTakeControls();
+  session.node.port.postMessage('stop');
+  session.stopTimeout = setTimeout(() => endMic(session), 800);
 }
 
 $('mic-record').onclick = async () => {
   if (recording === 'mic') return finishMic();
   if (!arm('mic')) return;
   stop();
-  const session = { chunks: [] };
+  const session = { chunks: [], samples: 0 };
   micSession = session;
-  say('Ouverture du microphone…');
+  micState = 'opening';
+  $('mic-status').textContent = 'Ouverture du microphone…';
+  refreshTakeControls({ resetPlayer: true });
   try {
-    session.context = new AudioContext();
+    const Context = window.AudioContext || window.webkitAudioContext;
+    session.context = new Context();
     await session.context.resume();
     if (session !== micSession) return;
-    session.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+    session.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+    });
     if (session !== micSession) return cleanMic(session);
     await session.context.audioWorklet.addModule(new URL('./recorder.js', import.meta.url));
     if (session !== micSession) return;
-    session.node = new AudioWorkletNode(session.context, 'meloa-mic', { processorOptions: { frames: Math.ceil(STEP_COUNT * audio.stepDuration * session.context.sampleRate) } });
+    const rate = session.context.sampleRate;
+    const frames = Math.ceil(STEP_COUNT * audio.stepDuration * rate);
+    session.node = new AudioWorkletNode(session.context, 'meloa-mic', { processorOptions: { frames } });
     session.node.port.onmessage = ({ data }) => {
-      if (data === null) endMic(session);
-      else session.chunks.push(data);
+      if (data === null) return endMic(session);
+      session.chunks.push(data);
+      session.samples += data.length;
+      let peak = 0;
+      for (const sample of data) peak = Math.max(peak, Math.abs(sample));
+      updateMicMonitor(session.samples / rate, peak);
     };
+    session.node.onprocessorerror = () => endMic(session, 'Le microphone a été interrompu. Réessaie.');
     session.input = session.context.createMediaStreamSource(session.stream);
     session.input.connect(session.node);
     session.node.connect(session.context.destination);
-    session.stream.getAudioTracks()[0].onended = finishMic;
-    say('Micro ouvert · quatre mesures maximum. Termine la prise quand tu veux.');
+    session.stream.getAudioTracks()[0].onended = () => {
+      if (micSession === session) finishMic();
+    };
+    session.deadline = setTimeout(finishMic, frames / rate * 1000 + 350);
+    micState = 'recording';
+    $('mic-status').textContent = 'Micro ouvert · quatre mesures maximum.';
+    refreshTakeControls();
   } catch (error) {
-    endMic(session, error.name === 'NotAllowedError' ? 'Accès au micro refusé. Autorise le microphone pour enregistrer.' : 'Micro indisponible. Vérifie le périphérique et réessaie.');
+    endMic(session, error.name === 'NotAllowedError'
+      ? 'Accès refusé. Autorise le microphone dans ton navigateur.'
+      : 'Micro indisponible. Vérifie le périphérique et réessaie.');
   }
 };
 
 $('transfer').onclick = () => {
-  if (recording || !take.length) return;
-  stopTakePreview();
+  if (recording || analysing || !take.length) return;
+  takePlayer.pause();
   let added = 0;
   let trimmed = 0;
-  const total = take.length;
   let firstAdded;
   const skipped = [];
   for (const entry of take) {
@@ -845,16 +960,27 @@ $('transfer').onclick = () => {
     audio.refreshStep(note.step);
     added++;
   }
-  switchMode(takeMode);
-  selectNote(firstAdded);
-  recordChange();
-  if (firstAdded) rows.get(firstAdded.pitch).cells[firstAdded.step].scrollIntoView({block:'nearest', inline:'nearest'});
+  if (firstAdded) {
+    lastTransferred = firstAdded;
+    $('take-show-grid').hidden = false;
+    switchMode(takeMode);
+    selectNote(firstAdded);
+    recordChange();
+    revealSelected();
+  }
   take = skipped;
   refreshTakeControls();
-  const result = [added + ' / ' + total + ' ajouté(s) à la grille.'];
-  if (skipped.length) result.push(skipped.length + ' en attente sur des cases occupées.');
-  if (trimmed) result.push(trimmed + ' durée(s) ajustée(s) à la place disponible.');
-  say(result.join(' '));
+  const noun = takeMode === 'drums' ? 'frappe' : 'note';
+  const details = [added ? added + ' ' + noun + (added > 1 ? 's ajoutées.' : ' ajoutée.') : 'Aucun ajout.'];
+  if (skipped.length) details.push(skipped.length + ' en attente sur des cases occupées.');
+  if (trimmed) details.push(trimmed + (trimmed > 1 ? ' durées raccourcies.' : ' durée raccourcie.'));
+  $('take-status').textContent = details.join(' ');
+};
+$('take-show-grid').onclick = () => {
+  if (!notes.includes(lastTransferred)) return;
+  switchMode(typeof lastTransferred.pitch === 'number' ? 'piano' : 'drums');
+  selectNote(lastTransferred);
+  revealSelected();
 };
 window.addEventListener('pagehide', () => {
   stop();
@@ -863,7 +989,7 @@ window.addEventListener('pagehide', () => {
 });
 setOctave(4);
 analyseTake();
-refreshTakeControls();
+refreshTakeTempo();
 
 for (const [field, control] of Object.entries(controls)) {
   control.addEventListener('change', () => updateSelected(field));
@@ -890,6 +1016,7 @@ $('tempo').addEventListener('change', event => {
   const value = Math.min(210, Math.max(55, Math.round(event.target.valueAsNumber || audio.bpm)));
   event.target.value = value;
   audio.setTempo(value);
+  refreshTakeTempo();
   recordChange();
 });
 

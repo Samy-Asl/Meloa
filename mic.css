@@ -1,0 +1,349 @@
+/* Microphone capture and takes */
+.mic-studio {
+  --mic-shell: #0d1018;
+  --mic-card: #151b27;
+  --mic-inset: #0b111d;
+  --mic-line: #303b51;
+  --mic-control: #566681;
+  --mic-text: #e0e8f7;
+  --mic-muted: #a8b5cc;
+  --mic-blue: #84afff;
+  --mic-blue-strong: #a6c5ff;
+  --mic-blue-ink: #0b1a34;
+  --mic-blue-panel: #1c2b47;
+  --mic-space: 12px;
+  color: var(--mic-text);
+}
+
+.mic-studio {
+  min-width: 0;
+  margin-top: 16px;
+  padding: clamp(12px, 2.2vw, 24px);
+  border: 1px solid var(--mic-line);
+  border-radius: 17px;
+  background: var(--mic-shell);
+  scroll-margin-top: 12px;
+}
+
+.mic-heading {
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#listen-panel .mic-heading h2 {
+  margin: 0;
+  color: var(--mic-text);
+  font-size: clamp(1.35rem, 2.8vw, 1.8rem);
+  font-weight: 730;
+  letter-spacing: -.035em;
+  line-height: 1.12;
+}
+
+.mic-heading h2::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: .82em;
+  margin-right: 10px;
+  border-radius: 2px;
+  background: var(--mic-blue);
+}
+
+.mic-panels, .take-review {
+  display: grid;
+  gap: var(--mic-space);
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.capture-panels:has(> #keyboard-panel):not(:has(> #listen-panel)) { grid-template-columns: minmax(0, 1fr); }
+.key-status:empty { display: none; }
+.key-status { margin: 10px 0 0; color: var(--muted); font-size: .875rem; }
+.key-take-link, .take-grid-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  color: #a7c6ff;
+  font-size: .875rem;
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
+.take-grid-link { margin-top: -6px; }
+
+.mic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  min-width: 0;
+  padding: clamp(13px, 1.5vw, 18px);
+  border: 1px solid var(--mic-line);
+  border-radius: 12px;
+  background: var(--mic-card);
+  box-shadow: 0 10px 22px #0002;
+}
+
+.mic-card :is(h2, h3) {
+  margin: 0;
+  color: var(--mic-text);
+  font-size: 1.05rem;
+  letter-spacing: -.02em;
+  line-height: 1.25;
+}
+
+.mic-card p { margin: 0; }
+.mic-card label { cursor: pointer; }
+.mic-card :focus-visible { outline: 2px solid var(--mic-blue-strong); outline-offset: 2px; }
+.mic-card button { touch-action: manipulation; }
+.mic-card button:disabled { cursor: default; }
+.mic-card button:not(:disabled) { transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.mic-card button:not(:disabled):active { transform: translateY(1px); }
+
+.mic-modes, .take-source {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--mic-line);
+  border-radius: 9px;
+  background: var(--mic-inset);
+}
+
+.take-source { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.mic-modes button, .take-source button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 5px 3px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mic-muted);
+  font-size: .875rem;
+  font-weight: 630;
+  line-height: 1.2;
+}
+
+.mic-modes button[aria-pressed="true"], .take-source button[aria-pressed="true"] {
+  border-color: var(--mic-control);
+  background: var(--mic-blue-panel);
+  color: var(--mic-text);
+  font-weight: 730;
+  box-shadow: 0 1px 3px #0004;
+}
+
+@media (hover: hover) {
+  .mic-modes button:not(:disabled):hover, .take-source button:not(:disabled):hover {
+    background: #233452;
+    color: var(--mic-text);
+  }
+}
+
+#listen-panel #listen-help, .mic-card :is(#mic-status, #take-player-status, #take-status) {
+  color: var(--mic-muted);
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+#listen-panel #listen-help { margin: 0; min-height: 2.45em; }
+.mic-card :is(#mic-status, #take-player-status, #take-status) { min-height: 1.5em; }
+.mic-card :is(#mic-status, #take-player-status, #take-status)[data-tone="error"] { color: #ffbeca; }
+
+.mic-record-card label:has(#enhance) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  min-height: 44px;
+  color: var(--mic-text);
+  font-size: .875rem;
+}
+
+#enhance {
+  accent-color: var(--mic-blue);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}
+
+.mic-monitor {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--mic-line);
+  border-radius: 8px;
+  background: var(--mic-inset);
+  color: var(--mic-muted);
+  font-size: .8125rem;
+  line-height: 1.25;
+}
+
+.mic-level {
+  position: relative;
+  min-width: 0;
+  min-height: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #26334c;
+}
+
+.mic-level::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--level, 0%);
+  content: "";
+  background: linear-gradient(90deg, #588ff2, #93c3ff);
+  transition: width 75ms linear;
+}
+
+.mic-level::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--mic-inset) calc(10% - 2px) 10%);
+}
+
+.mic-clock, .take-time {
+  color: var(--mic-text);
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mic-clock { font-size: .8125rem; }
+.mic-clock > span, #mic-limit, .take-time > span, #take-duration { color: var(--mic-muted); }
+
+.mic-card :is(#mic-record, #transfer, .take-play-button) {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--mic-blue);
+  color: var(--mic-blue-ink);
+  font-size: .875rem;
+  font-weight: 730;
+  line-height: 1.25;
+}
+
+.mic-card :is(#mic-record, #transfer):disabled { border-color: var(--mic-line); background: #202b3e; color: var(--mic-muted); opacity: 1; }
+.mic-card #mic-record[aria-pressed="true"] { border-color: #a35368; background: #392230; color: #ffc2cf; }
+.mic-record-icon { flex: none; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+#mic-record[aria-pressed="true"] .mic-record-icon { border-radius: 2px; }
+.mic-record-card[data-record-state="recording"] .mic-monitor { border-color: var(--mic-control); }
+.mic-card :is(#mic-record, #transfer) { width: 100%; }
+
+@media (hover: hover) {
+  .mic-card :is(#mic-record, #transfer, .take-play-button):not(:disabled):hover {
+    background: var(--mic-blue-strong);
+    box-shadow: 0 2px 14px #72a4ff22;
+  }
+  .mic-card #mic-record[aria-pressed="true"]:not(:disabled):hover { background: #4d2a3c; }
+}
+
+.take-waveform, .take-preview {
+  position: relative;
+  min-width: 0;
+  height: 100px;
+  border: 1px solid var(--mic-line);
+  border-radius: 8px;
+  background: var(--mic-inset);
+}
+
+.take-waveform { --wave-track: #7186ac; --wave-played: #9dc5ff; --wave-empty: #54647f; }
+.take-preview { --preview-note: #89b3ff; --preview-guide: #3b4e6c; --preview-tick: #263345; }
+.take-waveform canvas, .take-preview canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border-radius: inherit; }
+.take-preview canvas { height: calc(100% - 22px); border-radius: 8px 8px 0 0; }
+.take-measures { position: absolute; inset: auto 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: 22px; border-top: 1px solid var(--mic-line); text-align: center; }
+.take-measures span { padding-top: 3px; color: var(--mic-muted); font: .69rem ui-monospace, Consolas, monospace; }
+.take-measures span + span { border-left: 1px solid var(--mic-line); }
+.take-waveform:has([type="range"]:not(:disabled))::after {
+  position: absolute;
+  inset: 8px auto;
+  left: clamp(0px, var(--progress, 0%), calc(100% - 2px));
+  width: 2px;
+  border-radius: 2px;
+  background: var(--mic-blue-strong);
+  content: "";
+  pointer-events: none;
+}
+
+.take-waveform [type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  z-index: 1;
+  appearance: none;
+  background: transparent;
+  opacity: .001;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.take-waveform input::-webkit-slider-thumb { appearance: none; width: 4px; height: 32px; }
+.take-waveform input::-moz-range-thumb { width: 4px; height: 32px; border: 0; }
+.take-waveform:has([type="range"]:focus-visible) { outline: 2px solid var(--mic-blue-strong); outline-offset: 2px; }
+.take-waveform [type="range"]:disabled { cursor: default; }
+.take-player-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.take-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 5px 8px; }
+.take-caption { color: var(--mic-blue-strong); font-size: .75rem; }
+.take-summary { display: flex; align-items: center; min-height: 54px; color: var(--mic-muted); font-size: .875rem; line-height: 1.5; }
+.take-review[data-take-state="ready"] .take-summary { color: var(--mic-text); }
+.take-review[data-take-state="sent"] #take-status:not([data-tone="error"]) { color: var(--mic-blue-strong); }
+.take-play-button { min-width: 46px; }
+.take-play-icon { width: 12px; height: 12px; background: currentColor; clip-path: polygon(17% 0, 100% 50%, 17% 100%); }
+.take-review[data-playing="true"] .take-play-icon { clip-path: polygon(0 0, 33% 0, 33% 100%, 0 100%, 0 0, 67% 0, 100% 0, 100% 100%, 67% 100%, 67% 0); }
+.take-play-button:disabled { opacity: .5; }
+.take-review[data-player-busy="true"] .take-play-icon { clip-path: none; border-radius: 2px; }
+.take-source button:disabled { opacity: 1; color: #8898b2; border-color: transparent; background: transparent; box-shadow: none; }
+@media (forced-colors: active) {
+  .mic-modes button[aria-pressed="true"], .take-source button[aria-pressed="true"] { border-color: currentColor; }
+  .take-waveform:has([type="range"]:not(:disabled))::after { background: CanvasText; }
+  .mic-record-icon, .take-play-icon { forced-color-adjust: none; background: ButtonText; }
+}
+.take-time { font-size: .8125rem; }
+
+.take-transfer-card #transfer { margin-top: auto; }
+.take-review[data-take-state="ready"] .take-waveform canvas,
+.take-review[data-take-state="ready"] .take-preview canvas { animation: mic-appear 180ms ease-out; }
+.mic-record-card[data-record-state="recording"] .mic-record-icon { animation: mic-live-pulse 1.35s ease-in-out infinite; }
+@keyframes mic-live-pulse { 50% { opacity: .5; } }
+@keyframes mic-appear { from { opacity: .5; } to { opacity: 1; } }
+
+@media (min-width: 300px) and (max-width: 440px) {
+  .mic-card { padding-inline: 11px; }
+  .mic-modes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr); }
+  .mic-modes button { white-space: nowrap; }
+}
+
+@media (min-width: 700px) {
+  .take-review { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); }
+}
+
+@media (min-width: 1100px) {
+  .mic-panels { grid-template-columns: minmax(0, 1fr) minmax(0, 2.12fr); }
+  .take-waveform, .take-preview { flex: 1 0 100px; }
+  #keyboard-panel { display: grid; grid-template-columns: minmax(15rem, 1fr) minmax(0, 2.25fr); column-gap: 22px; }
+  #keyboard-panel .capture-tools { margin-bottom: 0; }
+  #keyboard-panel #keyboard { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+  #keyboard-panel :is(.key-status, .key-take-link) { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-card *, .mic-card *::before, .mic-card *::after { animation: none !important; transition: none !important; }
+  .mic-card button:not(:disabled):active { transform: none; }
+}

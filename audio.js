@@ -30,23 +30,37 @@ export class StudioAudio {
 
   get playing() { return this.timer !== null; }
 
-  async ready() {
+  getContext() {
     if (!this.context) {
       const Context = window.AudioContext || window.webkitAudioContext;
       this.context = new Context({ latencyHint: 'interactive' });
       this.connectMaster();
     }
-    const resume = this.context.resume();
+    return this.context;
+  }
+
+  async resume() {
+    const context = this.getContext();
+    await context.resume();
+    return context;
+  }
+
+  async loadSamples() {
+    const context = this.getContext();
     this.loading ??= Promise.all(SAMPLE_FILES.map(async file => {
       if (this.buffers.has(file)) return;
       const response = await fetch(new URL(`./assets/${file}`, import.meta.url));
       if (!response.ok) throw new Error(`Échantillon indisponible : ${file}`);
-      this.buffers.set(file, await this.context.decodeAudioData(await response.arrayBuffer()));
+      this.buffers.set(file, await context.decodeAudioData(await response.arrayBuffer()));
     })).catch(error => {
       this.loading = null;
       throw error;
     });
-    await Promise.all([resume, this.loading]);
+    await this.loading;
+  }
+
+  async ready() {
+    await Promise.all([this.resume(), this.loadSamples()]);
   }
 
   connectMaster() {
@@ -60,10 +74,10 @@ export class StudioAudio {
     limiter.connect(this.context.destination);
   }
 
-  async renderLoop(notes, bpm) {
+  async renderLoop(notes, bpm, duration) {
     const rate = 44100;
     const renderer = new StudioAudio(null, bpm);
-    const frames = Math.round(STEP_COUNT * renderer.stepDuration * rate);
+    const frames = Math.round((duration ?? STEP_COUNT * renderer.stepDuration) * rate);
     renderer.context = new OfflineAudioContext(2, frames, rate);
     renderer.buffers = this.buffers;
     renderer.connectMaster();
