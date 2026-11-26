@@ -1,5 +1,5 @@
 /* Microphone capture and takes */
-.mic-studio {
+.mic-studio, .take-review {
   --mic-shell: #0d1018;
   --mic-card: #151b27;
   --mic-inset: #0b111d;
@@ -15,42 +15,6 @@
   color: var(--mic-text);
 }
 
-.mic-studio {
-  min-width: 0;
-  margin-top: 16px;
-  padding: clamp(12px, 2.2vw, 24px);
-  border: 1px solid var(--mic-line);
-  border-radius: 17px;
-  background: var(--mic-shell);
-  scroll-margin-top: 12px;
-}
-
-.mic-heading {
-  margin: 0 0 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-#listen-panel .mic-heading h2 {
-  margin: 0;
-  color: var(--mic-text);
-  font-size: clamp(1.35rem, 2.8vw, 1.8rem);
-  font-weight: 730;
-  letter-spacing: -.035em;
-  line-height: 1.12;
-}
-
-.mic-heading h2::before {
-  content: "";
-  display: inline-block;
-  width: 3px;
-  height: .82em;
-  margin-right: 10px;
-  border-radius: 2px;
-  background: var(--mic-blue);
-}
-
 .mic-panels, .take-review {
   display: grid;
   gap: var(--mic-space);
@@ -58,21 +22,9 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.capture-panels:has(> #keyboard-panel):not(:has(> #listen-panel)) { grid-template-columns: minmax(0, 1fr); }
-.key-status:empty { display: none; }
-.key-status { margin: 10px 0 0; color: var(--muted); font-size: .875rem; }
-.key-take-link, .take-grid-link {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  min-height: 44px;
-  color: #a7c6ff;
-  font-size: .875rem;
-  font-weight: 650;
-  text-underline-offset: 3px;
-}
-.take-grid-link { margin-top: -6px; }
-
+.mic-review-slot { min-width: 0; display: grid; }
+.mic-empty { justify-content: center; align-items: flex-start; min-height: 150px; }
+.mic-empty p { max-width: 42ch; color: var(--mic-muted); font-size: .9rem; line-height: 1.55; }
 .mic-card {
   display: flex;
   flex-direction: column;
@@ -335,12 +287,8 @@
 }
 
 @media (min-width: 1100px) {
-  .mic-panels { grid-template-columns: minmax(0, 1fr) minmax(0, 2.12fr); }
+  .mic-panels { grid-template-columns: minmax(280px, 1fr) minmax(0, 2.12fr); }
   .take-waveform, .take-preview { flex: 1 0 100px; }
-  #keyboard-panel { display: grid; grid-template-columns: minmax(15rem, 1fr) minmax(0, 2.25fr); column-gap: 22px; }
-  #keyboard-panel .capture-tools { margin-bottom: 0; }
-  #keyboard-panel #keyboard { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
-  #keyboard-panel :is(.key-status, .key-take-link) { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

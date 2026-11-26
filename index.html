@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#17191e">
+  <meta name="theme-color" content="#0f131b">
   <meta name="description" content="Composez un motif sur quatre mesures avec un piano et une batterie échantillonnés.">
   <title>Meloa — Studio</title>
   <link rel="stylesheet" href="style.css">
@@ -11,24 +11,26 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true" fill="none">
-        <path d="M6 17v-4m6 9V8m6 16V6m6 13v-8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
-      </svg>
-      <span>Meloa</span>
+    <div class="topbar-inner">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true" fill="none">
+          <path d="M6 17v-4m6 9V8m6 16V6m6 13v-8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+        <span>Meloa</span>
+      </div>
+      <nav class="workspace-menu" aria-label="Espaces du studio">
+        <a href="#sequence" data-workspace="sequence" aria-current="page">Séquenceur</a>
+        <a href="#keyboard-panel" data-workspace="keyboard-panel">Clavier</a>
+        <a href="#listen-panel" data-workspace="listen-panel">Micro<span id="mic-nav-live" hidden><span class="nav-live-dot" aria-hidden="true"></span><span class="sr-only"> · Enregistrement en cours</span></span></a>
+      </nav>
     </div>
-    <nav aria-label="Meloa">
-      <a href="#sequence">Séquenceur</a>
-      <a href="#keyboard-panel" id="keyboard-link">Clavier</a>
-      <a href="#listen-panel">Écoute micro</a>
-    </nav>
   </header>
 
   <main class="studio">
     <header class="studio-header">
       <div>
-        <h1>Studio</h1>
-        <p>4 mesures <span aria-hidden="true">·</span> 4/4 <span aria-hidden="true">·</span> Piano et batterie</p>
+        <h1 id="workspace-title" tabindex="-1">Séquenceur</h1>
+        <p id="workspace-detail">4 mesures · 4/4 · Piano et batterie</p>
       </div>
       <div class="pattern-actions">
         <span id="save-state" role="status"></span>
@@ -69,9 +71,9 @@
       <p id="status" class="status" role="status"></p>
     </section>
 
-    <section class="editor" id="sequence" tabindex="-1" aria-label="Éditeur de séquence">
+    <section class="editor workspace" id="sequence" aria-label="Éditeur de séquence">
       <header class="editor-toolbar">
-        <div class="track-controls"><h2>Séquenceur</h2><div class="tabs" role="tablist" aria-label="Instrument">
+        <div class="track-controls"><div class="tabs" role="tablist" aria-label="Instrument">
           <button role="tab" id="piano-tab" type="button" aria-selected="true" aria-controls="instrument-panel" data-mode="piano">Piano</button>
           <button role="tab" id="drums-tab" type="button" aria-selected="false" aria-controls="instrument-panel" tabindex="-1" data-mode="drums">Batterie</button>
         </div>
@@ -114,31 +116,32 @@
       </div>
     </section>
 
-    <div class="capture-panels">
-      <section class="keyboard-panel" id="keyboard-panel" aria-label="Clavier de piano">
+    <section class="workspace keyboard-workspace" id="keyboard-panel" aria-label="Clavier de piano" hidden>
+      <div class="keyboard-panel">
         <div class="keyboard-heading">
-          <h2>Clavier</h2>
-          <p>Joue avec la souris, au toucher ou avec les touches indiquées.</p>
-        </div>
-        <div class="capture-tools">
-          <button type="button" class="secondary" id="oct-down">− Octave (W)</button>
-          <output id="octave"></output>
-          <button type="button" class="secondary" id="oct-up">+ Octave (X)</button>
-          <button type="button" class="secondary record" id="key-record">Enregistrer le clavier</button>
+          <div class="octave-controls" role="group" aria-label="Octave du clavier">
+            <button type="button" class="secondary" id="oct-down" aria-keyshortcuts="W" aria-label="Descendre d’une octave"><span aria-hidden="true">−</span><kbd>W</kbd></button>
+            <output id="octave"></output>
+            <button type="button" class="secondary" id="oct-up" aria-keyshortcuts="X" aria-label="Monter d’une octave"><span aria-hidden="true">+</span><kbd>X</kbd></button>
+          </div>
+          <button type="button" class="secondary record keyboard-record" id="key-record">
+            <span class="mic-record-icon" aria-hidden="true"></span>
+            <span id="key-record-label">Enregistrer le clavier</span>
+          </button>
         </div>
         <div id="keyboard" class="keyboard"></div>
-        <p id="key-status" class="key-status" role="status"></p>
-        <a id="key-take-link" class="key-take-link" href="#take-review" hidden>Écouter la prise clavier</a>
-      </section>
-    </div>
+        <div class="key-feedback">
+          <p id="key-status" class="key-status" role="status"></p>
+          <button type="button" id="key-take-button" class="workspace-button" aria-controls="take-review" aria-expanded="false" hidden>Écouter la prise clavier</button>
+        </div>
+      </div>
+      <div id="keyboard-review"></div>
+    </section>
 
-    <section id="listen-panel" class="mic-studio" aria-labelledby="mic-heading">
-      <header class="mic-heading">
-        <h2 id="mic-heading">Écoute micro</h2>
-      </header>
+    <section id="listen-panel" class="workspace mic-studio" aria-label="Micro" hidden>
       <div class="mic-panels">
         <section class="mic-card mic-record-card" data-record-state="idle" aria-labelledby="mic-record-heading">
-          <h3 id="mic-record-heading">Enregistrer</h3>
+          <h2 id="mic-record-heading">Enregistrer</h2>
           <div class="mic-modes" role="group" aria-label="À détecter">
             <button type="button" data-listen-mode="rhythm" aria-pressed="false">Rythme</button>
             <button type="button" data-listen-mode="pitch" aria-pressed="false">Mélodie</button>
@@ -158,39 +161,46 @@
           </button>
           <p id="mic-status" class="mic-feedback" role="status"></p>
         </section>
-        <div id="take-review" class="take-review" data-take-state="empty" data-source="original" data-playing="false">
-          <section class="mic-card take-listen-card" aria-labelledby="take-listen-heading">
-            <div class="take-heading">
-              <h3 id="take-listen-heading">Écouter la prise</h3>
-              <span id="take-caption" class="take-caption" hidden></span>
-            </div>
-            <div class="take-source" role="group" aria-label="Source à écouter">
-              <button type="button" data-take-source="original" aria-pressed="true" disabled>Audio original</button>
-              <button type="button" data-take-source="result" aria-pressed="false" disabled>Résultat Meloa</button>
-            </div>
-            <div class="take-waveform">
-              <canvas id="take-waveform" aria-hidden="true"></canvas>
-              <input type="range" id="take-seek" aria-label="Position de lecture de la prise" min="0" max="0" step="any" value="0" disabled>
-            </div>
-            <div class="take-player-controls">
-              <button type="button" id="take-play" class="take-play-button" aria-label="Lire la prise" disabled>
-                <span class="take-play-icon" aria-hidden="true"></span>
-              </button>
-              <div class="take-time"><time id="take-current">0:00</time> <span aria-hidden="true">/</span> <time id="take-duration">0:00</time></div>
-            </div>
-            <p id="take-player-status" class="mic-feedback" role="status">La prise apparaîtra après l’enregistrement.</p>
+        <div class="mic-review-slot" id="mic-review-slot">
+          <section class="mic-card mic-empty" id="mic-review-empty" aria-labelledby="mic-review-heading">
+            <h2 id="mic-review-heading">Écouter une prise</h2>
+            <p id="mic-review-hint">Après l’enregistrement, tu pourras comparer l’original au résultat et l’ajouter à la grille.</p>
+            <button type="button" class="workspace-button" id="mic-key-take" hidden>Ouvrir la prise clavier</button>
           </section>
-          <section class="mic-card take-transfer-card" aria-labelledby="take-transfer-heading">
-            <h3 id="take-transfer-heading">Ajouter à la grille</h3>
-            <p id="take-summary" class="take-summary" aria-live="polite">Aucun résultat à transférer.</p>
-            <div class="take-preview" id="take-pattern">
-              <canvas id="take-pattern-canvas" aria-hidden="true"></canvas>
-              <div class="take-measures" aria-hidden="true"><span>M1</span><span>M2</span><span>M3</span><span>M4</span></div>
-            </div>
-            <button type="button" id="transfer" class="take-transfer-button" disabled>Ajouter à la grille</button>
-            <p id="take-status" class="mic-feedback" role="status"></p>
-            <a href="#sequence" id="take-show-grid" class="take-grid-link" hidden>Voir dans la grille</a>
-          </section>
+          <div id="take-review" class="take-review" data-take-state="empty" data-source="original" data-playing="false" hidden>
+            <section class="mic-card take-listen-card" aria-labelledby="take-listen-heading">
+              <div class="take-heading">
+                <h2 id="take-listen-heading">Écouter la prise</h2>
+                <span id="take-caption" class="take-caption" hidden></span>
+              </div>
+              <div class="take-source" role="group" aria-label="Source à écouter">
+                <button type="button" data-take-source="original" aria-pressed="true" disabled>Audio original</button>
+                <button type="button" data-take-source="result" aria-pressed="false" disabled>Résultat Meloa</button>
+              </div>
+              <div class="take-waveform">
+                <canvas id="take-waveform" aria-hidden="true"></canvas>
+                <input type="range" id="take-seek" aria-label="Position de lecture de la prise" min="0" max="0" step="any" value="0" disabled>
+              </div>
+              <div class="take-player-controls">
+                <button type="button" id="take-play" class="take-play-button" aria-label="Lire la prise" disabled>
+                  <span class="take-play-icon" aria-hidden="true"></span>
+                </button>
+                <div class="take-time"><time id="take-current">0:00</time> <span aria-hidden="true">/</span> <time id="take-duration">0:00</time></div>
+              </div>
+              <p id="take-player-status" class="mic-feedback" role="status">La prise apparaîtra après l’enregistrement.</p>
+            </section>
+            <section class="mic-card take-transfer-card" aria-labelledby="take-transfer-heading">
+              <h2 id="take-transfer-heading">Ajouter à la grille</h2>
+              <p id="take-summary" class="take-summary" aria-live="polite">Aucun résultat à transférer.</p>
+              <div class="take-preview" id="take-pattern">
+                <canvas id="take-pattern-canvas" aria-hidden="true"></canvas>
+                <div class="take-measures" aria-hidden="true"><span>M1</span><span>M2</span><span>M3</span><span>M4</span></div>
+              </div>
+              <button type="button" id="transfer" class="take-transfer-button" disabled>Ajouter à la grille</button>
+              <p id="take-status" class="mic-feedback" role="status"></p>
+              <button type="button" id="take-show-grid" class="workspace-button" hidden>Voir dans la grille</button>
+            </section>
+          </div>
         </div>
       </div>
     </section>

@@ -246,6 +246,7 @@ function syncHistory() {
   $('undo').disabled = !past.length || !!recording;
   $('redo').disabled = !future.length || !!recording;
   $('export-wav').disabled = !notes.length || exporting;
+  $('take-show-grid').hidden = !transferredNotes.some(note => notes.includes(note));
 }
 
 function restore(project) {
@@ -443,8 +444,6 @@ function switchMode(next, focus = false) {
     if (active && focus) tab.focus();
   }
   $('instrument-panel').setAttribute('aria-labelledby', mode === 'piano' ? 'piano-tab' : 'drums-tab');
-  if (mode === 'drums' && recording === 'keys') finishKeys();
-  $('keyboard-panel').hidden = mode === 'drums';
   $('pitch-setting').hidden = mode === 'drums';
   controls.length.parentElement.hidden = mode === 'drums';
   buildGrid();
@@ -542,7 +541,9 @@ let analysing = false;
 let method = 'both';
 let originalTrack = null;
 let resultTrack = null;
-let lastTransferred = null;
+let activeWorkspace = 'sequence';
+let keyboardReviewOpen = false;
+let transferredNotes = [];
 const held = new Map();
 const keyboardButtons = new Map();
 const review = $('take-review');
@@ -568,7 +569,8 @@ function refreshTakeControls({ resetPlayer = false } = {}) {
     stopping: 'Finalisation…',
   };
   recordCard.dataset.recordState = micState;
-  $('key-record').textContent = isKeys ? 'Terminer la prise' : 'Enregistrer le clavier';
+  $('key-record-label').textContent = isKeys ? 'Terminer la prise' : 'Enregistrer le clavier';
+  $('mic-nav-live').hidden = !isMic;
   $('mic-record-label').textContent = micLabels[micState];
   $('mic-record').disabled = isKeys || micState === 'stopping';
   $('key-record').disabled = isMic;
@@ -583,7 +585,7 @@ function refreshTakeControls({ resetPlayer = false } = {}) {
   $('tempo').disabled = Boolean(recording);
   $('open-project').disabled = $('clear-pattern').disabled = $('load-example').disabled = Boolean(recording);
   $('transfer').disabled = Boolean(recording) || analysing || !take.length;
-  $('key-take-link').hidden = takeOrigin !== 'keys' || !takeResult.length || Boolean(recording);
+  refreshReviewLocation();
   $('take-caption').hidden = !takeOrigin || (!originalTrack && !takeResult.length);
   $('take-caption').textContent = takeOrigin === 'keys' ? 'Prise clavier' : 'Prise micro';
   review.dataset.takeState = analysing ? 'analysing' : take.length ? 'ready' : takeResult.length ? 'sent' : 'empty';
@@ -599,6 +601,37 @@ function refreshTakeControls({ resetPlayer = false } = {}) {
   drawTakePattern();
   syncHistory();
 }
+
+function refreshReviewLocation() {
+  const keyboardTake = takeOrigin === 'keys' && takeResult.length > 0;
+  const keyboardButton = $('key-take-button');
+  keyboardButton.hidden = !keyboardTake || keyboardReviewOpen;
+  keyboardButton.setAttribute('aria-expanded', String(keyboardTake && keyboardReviewOpen));
+  $('mic-key-take').hidden = !keyboardTake;
+  const slot = $(keyboardTake ? 'keyboard-review' : 'mic-review-slot');
+  if (review.parentElement !== slot) slot.append(review);
+  review.hidden = keyboardTake ? !keyboardReviewOpen : !originalTrack;
+  $('mic-review-empty').hidden = Boolean(originalTrack);
+  $('mic-review-hint').textContent = keyboardTake
+    ? 'La prise en cours vient du clavier.'
+    : 'Après l’enregistrement, tu pourras comparer l’original au résultat et l’ajouter à la grille.';
+  review.querySelector('.take-source').hidden = keyboardTake;
+}
+
+function openKeyboardReview({ play = false } = {}) {
+  if (takeOrigin !== 'keys' || !takeResult.length) return;
+  navigateTo('keyboard-panel');
+  keyboardReviewOpen = true;
+  refreshTakeControls();
+  $('take-play').focus({ preventScroll: true });
+  if ($('take-play').getBoundingClientRect().bottom > window.innerHeight) {
+    review.scrollIntoView({ block: 'start' });
+  }
+  if (play && !takePlayer.node && !takePlayer.pending) takePlayer.toggle();
+}
+
+$('key-take-button').onclick = () => openKeyboardReview({ play: true });
+$('mic-key-take').onclick = () => openKeyboardReview();
 
 function makeResultTrack(notes, bpm) {
   if (!notes.length) return null;
@@ -637,10 +670,10 @@ function arm(kind) {
   takeResult = [];
   originalTrack = null;
   resultTrack = null;
-  lastTransferred = null;
-  $('take-show-grid').hidden = true;
+  transferredNotes = [];
   takeBpm = audio.bpm;
   takeOrigin = kind;
+  keyboardReviewOpen = false;
   recording = kind;
   $('take-status').textContent = '';
   $('mic-status').dataset.tone = 'neutral';
@@ -748,7 +781,7 @@ document.addEventListener('keydown', event => {
     if (!$('play').disabled) togglePlay();
     return;
   }
-  if (mode !== 'piano') return;
+  if (activeWorkspace !== 'keyboard-panel') return;
   const letter = event.key.toLowerCase();
   if (letter === 'w' || letter === 'x') setOctave(octave + (letter === 'x' ? 1 : -1));
   const item = keyboardButtons.get(letter);
@@ -798,8 +831,7 @@ function analyseTake() {
   takeResult = [];
   resultTrack = null;
   $('take-status').textContent = '';
-  lastTransferred = null;
-  $('take-show-grid').hidden = true;
+  transferredNotes = [];
   refreshTakeControls();
   const fallback = () => {
     analysisWorker?.terminate();
@@ -945,7 +977,7 @@ $('transfer').onclick = () => {
   takePlayer.pause();
   let added = 0;
   let trimmed = 0;
-  let firstAdded;
+  const inserted = [];
   const skipped = [];
   for (const entry of take) {
     const length = Math.min(entry.length, maxLength(entry.pitch, entry.step));
@@ -956,17 +988,14 @@ $('transfer').onclick = () => {
     if (length < entry.length) trimmed++;
     const note = { ...entry, length };
     notes.push(note);
-    firstAdded ??= note;
+    inserted.push(note);
     audio.refreshStep(note.step);
     added++;
   }
-  if (firstAdded) {
-    lastTransferred = firstAdded;
-    $('take-show-grid').hidden = false;
-    switchMode(takeMode);
-    selectNote(firstAdded);
+  if (inserted.length) {
+    transferredNotes.push(...inserted);
+    renderNotes();
     recordChange();
-    revealSelected();
   }
   take = skipped;
   refreshTakeControls();
@@ -977,10 +1006,18 @@ $('transfer').onclick = () => {
   $('take-status').textContent = details.join(' ');
 };
 $('take-show-grid').onclick = () => {
-  if (!notes.includes(lastTransferred)) return;
-  switchMode(typeof lastTransferred.pitch === 'number' ? 'piano' : 'drums');
-  selectNote(lastTransferred);
+  const note = transferredNotes.find(item => notes.includes(item));
+  if (!note) return;
+  navigateTo('sequence', { focus: true });
+  switchMode(typeof note.pitch === 'number' ? 'piano' : 'drums');
+  selectNote(note);
   revealSelected();
+  const cell = rows.get(note.pitch).cells[note.step];
+  lastCell.tabIndex = -1;
+  lastCell = cell;
+  cell.tabIndex = 0;
+  cell.focus({ preventScroll: true });
+  cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 };
 window.addEventListener('pagehide', () => {
   stop();
@@ -1032,6 +1069,7 @@ function updateOverview() {
   const indicesUsed = visible.map(note => indices.get(note.pitch));
   const top = indicesUsed.length ? Math.min(...indicesUsed) : 0;
   const range = indicesUsed.length ? Math.max(4, Math.max(...indicesUsed) - top + 1) : 4;
+  const trackColor = getComputedStyle(grid).getPropertyValue('--accent').trim();
   document.querySelectorAll('.measure-jump canvas').forEach((canvas, bar) => {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1040,7 +1078,7 @@ function updateOverview() {
       const from = Math.max(note.step, start);
       const to = Math.min(note.step + note.length, start + 16);
       if (to <= from) continue;
-      ctx.fillStyle = selection.has(note) ? '#ffffff' : mode === 'piano' ? '#ffb889' : '#91dfcc';
+      ctx.fillStyle = selection.has(note) ? '#ffffff' : trackColor;
       ctx.fillRect((from - start) * 8, 2 + (indices.get(note.pitch) - top) / range * 23, (to - from) * 8 - 1, 2);
     }
   });
@@ -1366,7 +1404,7 @@ document.addEventListener('keydown', event => {
   if (event.target.closest?.('input, select, textarea, [contenteditable]')) return;
   const key = event.key.toLowerCase();
   const command = event.ctrlKey || event.metaKey;
-  if (key === 'escape') {
+  if (key === 'escape' && activeWorkspace === 'sequence') {
     if (drag) { selection = new Set(drag.base); cancelGesture(); }
     else selectNote(null);
     return;
@@ -1375,6 +1413,8 @@ document.addEventListener('keydown', event => {
   if (command && (key === 'z' || key === 'y')) {
     event.preventDefault();
     historyStep(key === 'y' || event.shiftKey);
+  } else if (activeWorkspace !== 'sequence') {
+    return;
   } else if (command && key === 'd' && selection.size) {
     event.preventDefault();
     duplicateSelection();
@@ -1387,7 +1427,56 @@ document.addEventListener('keydown', event => {
   }
 });
 
-$('keyboard-link').onclick = () => switchMode('piano');
+const workspaceLinks = [...document.querySelectorAll('[data-workspace]')];
+const workspaceLabels = {
+  sequence: ['Séquenceur', '4 mesures · 4/4 · Piano et batterie'],
+  'keyboard-panel': ['Clavier', 'Joue au clavier, à la souris ou au toucher.'],
+  'listen-panel': ['Micro', 'Transforme une mélodie ou un rythme en notes à jouer.'],
+};
+
+function showWorkspace(next, { focus = false } = {}) {
+  if (next === activeWorkspace) return;
+  const previous = $(activeWorkspace);
+  const moveFocus = focus || previous.contains(document.activeElement);
+  if (previous.contains(review)) takePlayer.pause();
+  if (activeWorkspace === 'keyboard-panel') {
+    if (recording === 'keys') finishKeys();
+    for (const id of held.keys()) releaseKey(id);
+  }
+  activeWorkspace = next;
+  for (const link of workspaceLinks) {
+    const active = link.dataset.workspace === next;
+    $(link.dataset.workspace).hidden = !active;
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  [$('workspace-title').textContent, $('workspace-detail').textContent] = workspaceLabels[next];
+  if (moveFocus) $('workspace-title').focus({ preventScroll: true });
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function navigateTo(next, options) {
+  const hash = '#' + next;
+  if (location.hash !== hash) history.pushState(null, '', hash);
+  showWorkspace(next, options);
+}
+
+function showLocation() {
+  const target = location.hash.slice(1);
+  showWorkspace(Object.hasOwn(workspaceLabels, target) ? target : target === 'take-review' ? 'listen-panel' : 'sequence');
+}
+
+for (const link of workspaceLinks) {
+  link.addEventListener('click', event => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    event.preventDefault();
+    navigateTo(link.dataset.workspace);
+  });
+}
+history.scrollRestoration = 'manual';
+window.addEventListener('popstate', showLocation);
+window.addEventListener('hashchange', showLocation);
+
 document.querySelector('.project-menu').addEventListener('click', event => {
   if (event.target.closest('button')) event.currentTarget.open = false;
 });
@@ -1403,8 +1492,8 @@ $('project-file').onchange = async event => {
     if (recording) return;
     restore(project);
     recordChange();
-    $('edit-help').textContent = 'Projet ouvert · ' + notes.length + ' événements.';
-  } catch { $('edit-help').textContent = 'Ouverture impossible. Choisis un fichier projet Meloa valide.'; }
+    $('status').textContent = 'Projet ouvert · ' + notes.length + ' événements.';
+  } catch { $('status').textContent = 'Ouverture impossible. Choisis un fichier projet Meloa valide.'; }
 };
 $('export-wav').onclick = async () => {
   if (exporting || !notes.length) return;
@@ -1430,3 +1519,4 @@ $('tempo').value = audio.bpm;
 if (saved) $('save-state').textContent = 'Boucle restaurée';
 buildGrid();
 chooseTool('draw');
+showLocation();
